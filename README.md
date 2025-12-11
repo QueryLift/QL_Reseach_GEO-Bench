@@ -62,12 +62,12 @@ outputs/YYYYMMDD_HHMMSS/
 
 GEO論文 Section 2.2.1 に基づく：
 
-| メトリクス | 説明 |
-|-----------|------|
-| word_count_pct | 回答に占めるワード数の割合 (%) |
-| position_adjusted_pct | 位置重み付きワードカウント (%) |
-| citation_frequency | 引用回数 |
-| first_position | 最初に引用された位置 |
+| メトリクス | 論文 | 説明 |
+|-----------|------|------|
+| imp_wc | 式(2) Imp_wc | 回答に占めるワード数の割合 (%) |
+| imp_pwc | 式(3) Imp_pwc | 位置重み付きワードカウント (%) |
+| citation_frequency | - | 引用回数 |
+| first_position | - | 最初に引用された位置 |
 
 ## 参考文献
 

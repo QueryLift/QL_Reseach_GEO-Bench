@@ -128,7 +128,7 @@ def save_results(
     # 引用メトリクス CSV（ターゲットなし）
     metrics_headers = [
         "index", "url", "is_target",
-        "word_count_pct", "position_adjusted_pct",
+        "imp_wc", "imp_pwc",
         "citation_frequency", "first_position"
     ]
     metrics_without_rows = []
@@ -140,8 +140,8 @@ def save_results(
             i,
             url,
             "No",
-            round(m.word_count, 2),
-            round(m.position_adjusted, 2),
+            round(m.imp_wc, 2),
+            round(m.imp_pwc, 2),
             m.citation_frequency,
             m.first_citation_position if m.first_citation_position is not None else "N/A"
         ])
@@ -217,15 +217,15 @@ def save_results(
             url,
             is_target,
             target_id,
-            round(m.word_count, 2),
-            round(m.position_adjusted, 2),
+            round(m.imp_wc, 2),
+            round(m.imp_pwc, 2),
             m.citation_frequency,
             m.first_citation_position if m.first_citation_position is not None else "N/A"
         ])
 
     metrics_with_headers = [
         "index", "url", "is_target", "target_id",
-        "word_count_pct", "position_adjusted_pct",
+        "imp_wc", "imp_pwc",
         "citation_frequency", "first_position"
     ]
     save_csv(output_dir, "metrics_with.csv", metrics_with_headers, metrics_with_rows)
@@ -233,12 +233,14 @@ def save_results(
     # サマリー用データを収集
     summary_results = []
     for ti in result.target_infos:
-        visibility = ti.get_visibility(result.citations_with_targets)
+        metrics = result.citations_with_targets.get(ti.target_index)
         summary_results.append({
             "target_id": ti.target_id,
             "target_url": ti.target_url,
             "target_index": ti.target_index,
-            "visibility": visibility,
+            "included": metrics is not None,
+            "imp_wc": metrics.imp_wc if metrics else 0,
+            "imp_pwc": metrics.imp_pwc if metrics else 0,
         })
 
     return summary_results
@@ -248,8 +250,7 @@ def print_summary(summary_results: list[dict], output_dir: Path):
     """結果のサマリーをコンソールに出力"""
     print(f"\n完了: {output_dir}")
     for r in summary_results:
-        v = r["visibility"]
-        status = f"Word Count: {v.get('word_count', 0):.1f}%" if v.get('included') else "引用なし"
+        status = f"Imp_wc: {r['imp_wc']:.1f}%" if r['included'] else "引用なし"
         print(f"  {r['target_id']}: {status}")
 
 

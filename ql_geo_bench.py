@@ -39,6 +39,7 @@ class Citation:
     sentences: list[str] = field(default_factory=list)
     word_count: int = 0
     position_sum: float = 0.0  # Position-adjusted計算用
+    first_pos: int | None = None  # 最初に引用された位置
 
 
 class TargetContent(TypedDict):
@@ -54,33 +55,19 @@ class CitationMetrics:
     引用メトリクス (GEO論文 Section 2.2.1)
 
     Attributes:
-        word_count: 式(2) Imp_wc - 正規化ワードカウント (%)
+        imp_wc: 式(2) Imp_wc - 正規化ワードカウント (%)
             Imp_wc(c_i, r) = Σ_{s∈S_{c_i}} |s| / Σ_{s∈S_r} |s|
-            引用に関連する文のワード数の割合
 
-        position_adjusted: 式(3) Imp_pwc - 位置調整済みワードカウント (%)
+        imp_pwc: 式(3) Imp_pwc - 位置調整済みワードカウント (%)
             Imp_pwc(c_i, r) = Σ_{s∈S_{c_i}} |s| · e^{-pos(s)/|S|} / Σ_{s∈S_r} |s|
-            回答の前半に引用されるほど高い値になる
 
         citation_frequency: 引用された回数
         first_citation_position: 最初に引用された文の位置 (0-indexed)
     """
-    # 式(2) Imp_wc: Word Count
-    word_count: float = 0.0
-    # 式(3) Imp_pwc: Position-Adjusted Word Count
-    position_adjusted: float = 0.0
-
-    # 追加メトリクス
+    imp_wc: float = 0.0
+    imp_pwc: float = 0.0
     citation_frequency: int = 0
     first_citation_position: int | None = None
-
-    def __repr__(self) -> str:
-        return (
-            f"CitationMetrics(word_count={self.word_count:.2f}, "
-            f"position_adjusted={self.position_adjusted:.2f}, "
-            f"frequency={self.citation_frequency}, "
-            f"first_pos={self.first_citation_position})"
-        )
 
 
 @dataclass
@@ -89,26 +76,6 @@ class TargetInfo:
     target_id: str
     target_url: str
     target_index: int  # sources_with_targets 内でのインデックス（1-indexed）
-
-    def get_visibility(self, citations: dict[int, CitationMetrics]) -> dict:
-        """ターゲットの visibility を計算"""
-        metrics = citations.get(self.target_index)
-
-        if metrics is None:
-            return {
-                "included": False,
-                "word_count": 0,
-                "position_adjusted": 0,
-                "citation_frequency": 0,
-            }
-
-        return {
-            "included": True,
-            "word_count": metrics.word_count,
-            "position_adjusted": metrics.position_adjusted,
-            "citation_frequency": metrics.citation_frequency,
-            "first_citation_position": metrics.first_citation_position,
-        }
 
 
 @dataclass
@@ -166,58 +133,47 @@ class CitationAnalyzer:
         if total_word_count == 0:
             return {}
 
-        # 各ソースの引用情報を収集
-        citations: dict[int, Citation] = {}
-        for idx in range(len(sources)):
-            citations[idx + 1] = Citation(
-                index=idx + 1,
-                url=sources[idx].get("url", ""),
-            )
+        # 各ソースの Citation オブジェクトを初期化
+        citations: dict[int, Citation] = {
+            idx + 1: Citation(index=idx + 1, url=sources[idx].get("url", ""))
+            for idx in range(len(sources))
+        }
 
-        # 各文を解析
-        # 式(2), (3) の分子部分を計算
+        # 各文を解析し、引用ごとに分子を累積
+        # - Imp_wc 分子: Σ|s| （引用された文のワード数合計）
+        # - Imp_pwc 分子: Σ|s|·e^{-pos/|S|} （位置重み付きワード数合計）
+        num_sentences = len(sentences)
         for pos, sentence in enumerate(sentences):
             cited_indices = self._extract_citations(sentence)
-            word_count = len(sentence.split())  # |s|
+            if not cited_indices:
+                continue
 
-            # 複数引用の場合はワードカウントを分割（論文の仕様）
-            share = word_count / len(cited_indices) if cited_indices else 0
+            word_count = len(sentence.split())  # |s|
+            share = word_count / len(cited_indices)  # 複数引用時は均等分割
+            weight = pow(2.718281828, -pos / num_sentences)  # e^{-pos/|S|}
 
             for idx in cited_indices:
-                if idx in citations:
-                    citations[idx].sentences.append(sentence)
-                    # 式(2) Imp_wc: Σ|s| の累積
-                    citations[idx].word_count += share
-                    # 式(3) Imp_pwc: Σ(|s| · e^{-pos(s)/|S|}) の累積
-                    # pos(s) = 文の位置, |S| = 総文数
-                    position_weight = pow(2.718281828, -pos / len(sentences)) if sentences else 1
-                    citations[idx].position_sum += share * position_weight
+                cit = citations.get(idx)
+                if cit:
+                    if cit.first_pos is None:
+                        cit.first_pos = pos
+                    cit.sentences.append(sentence)
+                    cit.word_count += share
+                    cit.position_sum += share * weight
 
-        # メトリクスを計算
-        # 式(2), (3) の分母（Σ_{s∈S_r} |s|）で正規化
-        metrics: dict[int, CitationMetrics] = {}
-        for idx, cit in citations.items():
-            if cit.word_count > 0 or cit.sentences:
-                # 式(2) Imp_wc = Σ|s| / Σ|s_r| (正規化)
-                normalized_wc = cit.word_count / total_word_count if total_word_count > 0 else 0
-                # 式(3) Imp_pwc = Σ(|s|·e^{-pos/|S|}) / Σ|s_r| (正規化)
-                normalized_pwc = cit.position_sum / total_word_count if total_word_count > 0 else 0
-
-                # 最初の引用位置を見つける
-                first_pos = None
-                for pos, sentence in enumerate(sentences):
-                    if idx in self._extract_citations(sentence):
-                        first_pos = pos
-                        break
-
-                metrics[idx] = CitationMetrics(
-                    word_count=normalized_wc * 100,  # パーセンテージ
-                    position_adjusted=normalized_pwc * 100,
-                    citation_frequency=len(cit.sentences),
-                    first_citation_position=first_pos,
-                )
-
-        return metrics
+        # 分母で正規化してメトリクスを生成
+        # - Imp_wc = 分子 / Σ|s_r| * 100 (%)
+        # - Imp_pwc = 分子 / Σ|s_r| * 100 (%)
+        return {
+            cit.index: CitationMetrics(
+                imp_wc=cit.word_count / total_word_count * 100,
+                imp_pwc=cit.position_sum / total_word_count * 100,
+                citation_frequency=len(cit.sentences),
+                first_citation_position=cit.first_pos,
+            )
+            for cit in citations.values()
+            if cit.word_count > 0
+        }
 
     def _split_into_sentences(self, text: str) -> list[str]:
         """テキストを文に分割"""
