@@ -524,8 +524,8 @@ def strip_markdown(content: str) -> str:
     Returns:
         プレーンテキスト
     """
-    # 見出し（# ## ### など）を除去
-    content = re.sub(r'^#{1,6}\s+', '', content, flags=re.MULTILINE)
+    # 見出し（# ## ### など）の記号のみ除去（改行は保持）
+    content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE)
     # 太字・斜体（** __ * _）を除去
     content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)
     content = re.sub(r'__(.+?)__', r'\1', content)
