@@ -10,6 +10,7 @@ Reference: Aggarwal et al., "GEO: Generative Engine Optimization", KDD 2024
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import re
 import time
@@ -18,6 +19,7 @@ from typing import TypedDict
 
 import httpx
 import openai
+import pdfplumber
 from bs4 import BeautifulSoup
 
 
@@ -298,15 +300,13 @@ class WebContentFetcher:
             response = await client.get(url)
             response.raise_for_status()
 
-            # HTMLをパース
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # 不要な要素を削除
-            for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
-                tag.decompose()
-
-            # テキストを抽出
-            text = soup.get_text(separator=' ', strip=True)
+            # PDFの場合
+            if url.lower().endswith('.pdf'):
+                text = self._extract_pdf(response.content)
+            else:
+                # UTF-8でデコード
+                response.encoding = 'utf-8'
+                text = self._extract_html(response.text)
 
             # 正規化
             text = re.sub(r'\s+', ' ', text)
@@ -319,6 +319,26 @@ class WebContentFetcher:
 
         except Exception as e:
             return f"[Error fetching {url}: {e}]"
+
+    def _extract_html(self, html: str) -> str:
+        """HTMLからテキストを抽出"""
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # 不要な要素を削除
+        for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+            tag.decompose()
+
+        return soup.get_text(separator=' ', strip=True)
+
+    def _extract_pdf(self, content: bytes) -> str:
+        """PDFからテキストを抽出"""
+        text_parts = []
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+        return ' '.join(text_parts)
 
     async def close(self):
         if self._client:

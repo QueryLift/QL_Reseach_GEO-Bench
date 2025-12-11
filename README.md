@@ -12,7 +12,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 依存パッケージをインストール
-pip install openai httpx beautifulsoup4 python-dotenv
+pip install openai httpx beautifulsoup4 python-dotenv pdfplumber
 ```
 
 `.env` ファイルを作成：
@@ -50,7 +50,7 @@ python run_geo_bench.py
 ## 処理フロー
 
 1. **Web検索** - `gpt-5` + `web_search` ツールでソースURLを取得
-2. **コンテンツ取得** - 各URLからHTMLを取得しテキスト抽出（並列処理）
+2. **コンテンツ取得** - 各URLからHTML/PDFを取得しテキスト抽出（並列処理）
 3. **回答生成（ターゲットなし）** - `gpt-5` で回答生成、引用メトリクス計算
 4. **回答生成（ターゲットあり）** - ソースリスト末尾にターゲットを追加して `gpt-5` で回答生成
 
