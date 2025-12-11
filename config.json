@@ -1,0 +1,12 @@
+{
+  "question": "自民党が教育分野でどのような方針を打ち出しているか、ざっくり知りたいです。",
+  "targets": [
+    {
+      "id": "jimin_education",
+      "file": "target.md",
+      "url": "https://www.jimin.jp/policy/education/shoshika-kosodate"
+    }
+  ],
+  "output_dir": "outputs",
+  "max_sources": 5
+}
