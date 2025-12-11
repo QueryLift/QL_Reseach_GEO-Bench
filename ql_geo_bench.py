@@ -316,8 +316,10 @@ class WebContentFetcher:
                 text = self._extract_html(response.text)
                 media_type = "HTML"
 
-            # 正規化
-            text = re.sub(r'\s+', ' ', text)
+            # 正規化（改行は保持）
+            text = re.sub(r'[^\S\n]+', ' ', text)  # 改行以外の空白を正規化
+            text = re.sub(r' *\n *', '\n', text)   # 改行前後の空白を除去
+            text = re.sub(r'\n+', '\n', text)      # 連続する改行を1つに
 
             # 長さ制限
             if len(text) > self.MAX_CONTENT_LENGTH:
@@ -337,6 +339,11 @@ class WebContentFetcher:
         # 不要な要素を削除
         for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
             tag.decompose()
+
+        # 見出しタグの前後に改行を挿入
+        for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            tag.insert_before('\n')
+            tag.insert_after('\n')
 
         return soup.get_text(separator=' ', strip=True)
 
