@@ -31,6 +31,7 @@ class SourceContent(TypedDict):
     """検索ソースの型定義"""
     url: str
     content: str
+    media_type: str  # "PDF", "HTML", "TARGET", "ERROR"
 
 
 @dataclass
@@ -293,8 +294,13 @@ class WebContentFetcher:
             )
         return self._client
 
-    async def fetch(self, url: str) -> str:
-        """URLからテキストコンテンツを取得"""
+    async def fetch(self, url: str) -> tuple[str, str]:
+        """
+        URLからテキストコンテンツを取得
+
+        Returns:
+            (content, media_type): コンテンツとメディアタイプ（"PDF" or "HTML"）
+        """
         try:
             client = await self._get_client()
             response = await client.get(url)
@@ -303,10 +309,12 @@ class WebContentFetcher:
             # PDFの場合
             if url.lower().endswith('.pdf'):
                 text = self._extract_pdf(response.content)
+                media_type = "PDF"
             else:
                 # UTF-8でデコード
                 response.encoding = 'utf-8'
                 text = self._extract_html(response.text)
+                media_type = "HTML"
 
             # 正規化
             text = re.sub(r'\s+', ' ', text)
@@ -315,10 +323,12 @@ class WebContentFetcher:
             if len(text) > self.MAX_CONTENT_LENGTH:
                 text = text[:self.MAX_CONTENT_LENGTH] + "..."
 
-            return text
+            print(f"[Web] {media_type} {len(text)}文字 <- {url}")
+            return text, media_type
 
         except Exception as e:
-            return f"[Error fetching {url}: {e}]"
+            print(f"[Web] エラー <- {url}: {e}")
+            return f"[Error fetching {url}: {e}]", "ERROR"
 
     def _extract_html(self, html: str) -> str:
         """HTMLからテキストを抽出"""
@@ -403,12 +413,7 @@ class GEOBench:
         # 2. 各ソースのコンテンツを取得
         sources = await self._fetch_sources(source_urls)
 
-        # 3. ターゲットなしで回答生成
-        print("[API] without: ターゲットなしで回答生成中...")
-        answer_without = await self._generate_answer(question, sources)
-        metrics_without = self.analyzer.analyze(answer_without, sources)
-
-        # 4. 全ターゲットを一括でソースリストに追加
+        # 3. ターゲットありのソースリストを事前構築
         sources_with_targets = sources.copy()
         target_infos: list[TargetInfo] = []
 
@@ -416,6 +421,7 @@ class GEOBench:
             target_source: SourceContent = {
                 "url": target["url"],
                 "content": target["content"],
+                "media_type": "TARGET",
             }
             sources_with_targets.append(target_source)
             target_index = len(sources_with_targets)  # 1-indexed（追加後の長さ）
@@ -426,9 +432,15 @@ class GEOBench:
                 target_index=target_index,
             ))
 
-        # 5. 全ターゲットを含むソースで1回だけ回答生成
-        print("[API] with: ターゲットありで回答生成中...")
-        answer_with = await self._generate_answer(question, sources_with_targets)
+        # 4. without/with を並列で回答生成
+        print("[API] without/with: 回答生成中（並列）...")
+        answer_without, answer_with = await asyncio.gather(
+            self._generate_answer(question, sources),
+            self._generate_answer(question, sources_with_targets),
+        )
+
+        # 5. メトリクス計算
+        metrics_without = self.analyzer.analyze(answer_without, sources)
         metrics_with = self.analyzer.analyze(answer_with, sources_with_targets)
 
         return GEOBenchResult(
@@ -449,13 +461,14 @@ class GEOBench:
     async def _fetch_sources(self, urls: list[str]) -> list[SourceContent]:
         """複数のURLからコンテンツを並列取得"""
         tasks = [self.fetcher.fetch(url) for url in urls]
-        contents = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
 
         sources: list[SourceContent] = []
-        for url, content in zip(urls, contents):
+        for url, (content, media_type) in zip(urls, results):
             sources.append({
                 "url": url,
                 "content": content,
+                "media_type": media_type,
             })
 
         return sources
