@@ -133,11 +133,9 @@ class CitationAnalyzer:
         if total_word_count == 0:
             return {}
 
-        # 各ソースの Citation オブジェクトを初期化
-        citations: dict[int, Citation] = {
-            idx + 1: Citation(index=idx + 1, url=sources[idx]["url"])
-            for idx in range(len(sources))
-        }
+        # 引用された Citation のみオンデマンドで作成
+        citations: dict[int, Citation] = {}
+        num_sources = len(sources)
 
         # 各文を解析し、引用ごとに分子を累積
         # - Imp_wc 分子: Σ|s| （引用された文のワード数合計）
@@ -153,13 +151,16 @@ class CitationAnalyzer:
             weight = pow(2.718281828, -pos / num_sentences)  # e^{-pos/|S|}
 
             for idx in cited_indices:
-                cit = citations.get(idx)
-                if cit:
-                    if cit.first_pos is None:
-                        cit.first_pos = pos
-                    cit.sentences.append(sentence)
-                    cit.word_count += share
-                    cit.position_sum += share * weight
+                if idx < 1 or idx > num_sources:
+                    continue  # 無効なインデックスはスキップ
+                if idx not in citations:
+                    citations[idx] = Citation(index=idx, url=sources[idx - 1]["url"])
+                cit = citations[idx]
+                if cit.first_pos is None:
+                    cit.first_pos = pos
+                cit.sentences.append(sentence)
+                cit.word_count += share
+                cit.position_sum += share * weight
 
         # 分母で正規化してメトリクスを生成
         # - Imp_wc = 分子 / Σ|s_r| * 100 (%)
@@ -172,7 +173,6 @@ class CitationAnalyzer:
                 first_citation_position=cit.first_pos,
             )
             for cit in citations.values()
-            if cit.word_count > 0
         }
 
     def _split_into_sentences(self, text: str) -> list[str]:
@@ -377,12 +377,14 @@ class GEOBench:
             GEOBenchResult: 比較結果（全ターゲット一括）
         """
         # 1. Web検索でソースを取得
+        print("[API] search_reference: Web検索を実行中...")
         source_urls = await self._search_web(question)
 
         # 2. 各ソースのコンテンツを取得
         sources = await self._fetch_sources(source_urls)
 
         # 3. ターゲットなしで回答生成
+        print("[API] without: ターゲットなしで回答生成中...")
         answer_without = await self._generate_answer(question, sources)
         metrics_without = self.analyzer.analyze(answer_without, sources)
 
@@ -405,6 +407,7 @@ class GEOBench:
             ))
 
         # 5. 全ターゲットを含むソースで1回だけ回答生成
+        print("[API] with: ターゲットありで回答生成中...")
         answer_with = await self._generate_answer(question, sources_with_targets)
         metrics_with = self.analyzer.analyze(answer_with, sources_with_targets)
 
