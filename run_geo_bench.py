@@ -105,15 +105,8 @@ def save_results(
             source = result.sources[source_idx]
             references_without.append({
                 "index": i,
-                "url": source.get("url", f"web_source_{i}"),
-                "content": source.get("content", ""),
-                "is_target": False
-            })
-        else:
-            references_without.append({
-                "index": i,
-                "url": f"web_source_{i}",
-                "content": "",
+                "url": source["url"],
+                "content": source["content"],
                 "is_target": False
             })
 
@@ -135,7 +128,7 @@ def save_results(
     for i in sorted(result.citations_without_targets.keys()):
         m = result.citations_without_targets[i]
         source_idx = i - 1
-        url = result.sources[source_idx].get("url", f"web_source_{i}") if 0 <= source_idx < len(result.sources) else f"web_source_{i}"
+        url = result.sources[source_idx]["url"]
         metrics_without_rows.append([
             i,
             url,
@@ -171,15 +164,8 @@ def save_results(
                 source = result.sources[source_idx]
                 references_with.append({
                     "index": i,
-                    "url": source.get("url", f"web_source_{i}"),
-                    "content": source.get("content", ""),
-                    "is_target": False
-                })
-            else:
-                references_with.append({
-                    "index": i,
-                    "url": f"web_source_{i}",
-                    "content": "",
+                    "url": source["url"],
+                    "content": source["content"],
                     "is_target": False
                 })
 
@@ -209,7 +195,7 @@ def save_results(
             target_id = target_info.target_id
         else:
             source_idx = i - 1
-            url = result.sources[source_idx].get("url", f"web_source_{i}") if 0 <= source_idx < len(result.sources) else f"web_source_{i}"
+            url = result.sources[source_idx]["url"]
             is_target = "No"
             target_id = ""
         metrics_with_rows.append([

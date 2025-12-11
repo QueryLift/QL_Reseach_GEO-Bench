@@ -135,7 +135,7 @@ class CitationAnalyzer:
 
         # 各ソースの Citation オブジェクトを初期化
         citations: dict[int, Citation] = {
-            idx + 1: Citation(index=idx + 1, url=sources[idx].get("url", ""))
+            idx + 1: Citation(index=idx + 1, url=sources[idx]["url"])
             for idx in range(len(sources))
         }
 
@@ -202,7 +202,7 @@ class LLMClient:
         self.async_client = openai.AsyncOpenAI(api_key=api_key)
 
         # レートリミット設定
-        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "2.0"))
+        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "0.5"))
         self._rate_limit_lock = asyncio.Lock()
         self._last_call_time = 0.0
 
@@ -341,12 +341,12 @@ class GEOBench:
 
     # GEO論文 Listing 1 のプロンプト
     PROMPT_TEMPLATE = """Write an accurate and concise answer for the given user question, using _only_ the provided summarized web search results.
-The answer should be correct, high-quality, and written by an expert using an unbiased and journalistic tone. The user's language of choice such as English, Francais, Espamol, Deutsch, or Japanese should be used. The answer should be informative, interesting, and engaging. The answer's logic and reasoning should be rigorous and defensible. Every sentence in the answer should be _immediately followed_ by an in-line citation to the search result(s). The cited search result(s) should fully support _all_ the information in the sentence. Search results need to be cited using [index]. When citing several search results, use [1][2][3] format rather than [1, 2, 3]. You can use multiple search results to respond comprehensively while avoiding irrelevant search results.
+    The answer should be correct, high-quality, and written by an expert using an unbiased and journalistic tone. The user's language of choice such as English, Francais, Espamol, Deutsch, or Japanese should be used. The answer should be informative, interesting, and engaging. The answer's logic and reasoning should be rigorous and defensible. Every sentence in the answer should be _immediately followed_ by an in-line citation to the search result(s). The cited search result(s) should fully support _all_ the information in the sentence. Search results need to be cited using [index]. When citing several search results, use [1][2][3] format rather than [1, 2, 3]. You can use multiple search results to respond comprehensively while avoiding irrelevant search results.
 
-Question: {question}
+    Question: {question}
 
-Search Results:
-{sources}"""
+    Search Results:
+    {sources}"""
 
     def __init__(
         self,
@@ -392,15 +392,15 @@ Search Results:
 
         for target in self.target_contents:
             target_source: SourceContent = {
-                "url": target.get("url", ""),
-                "content": target.get("content", ""),
+                "url": target["url"],
+                "content": target["content"],
             }
             sources_with_targets.append(target_source)
             target_index = len(sources_with_targets)  # 1-indexed（追加後の長さ）
 
             target_infos.append(TargetInfo(
-                target_id=target.get("id", ""),
-                target_url=target.get("url", ""),
+                target_id=target["id"],
+                target_url=target["url"],
                 target_index=target_index,
             ))
 
@@ -462,8 +462,8 @@ Search Results:
         """ソースをプロンプト用にフォーマット"""
         lines = []
         for i, source in enumerate(sources, 1):
-            url = source.get("url", "unknown")
-            content = source.get("content", "")
+            url = source["url"]
+            content = source["content"]
             lines.append(f"[{i}] URL: {url}")
             lines.append(f"    Content: {content}")
             lines.append("")
