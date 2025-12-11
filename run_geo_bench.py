@@ -101,24 +101,36 @@ def save_results(
     target_by_index = {ti.target_index: ti for ti in result.target_infos}
     content_by_id = {tc["id"]: tc["content"] for tc in target_contents}
 
-    # 回答（ターゲットなし）
-    references_without = []
-    for i in sorted(result.citations_without_targets.keys()):
-        source_idx = i - 1  # sources は 0-indexed
-        if 0 <= source_idx < len(result.sources):
-            source = result.sources[source_idx]
-            references_without.append({
-                "index": i,
-                "url": source["url"],
-                "content": source["content"],
-                "is_target": False
-            })
+    # === ソースファイル（統合）===
+    # Webソース + ターゲット（cited_without/cited_with両方）
+    sources_data = []
+    # Webソース部分
+    for i, source in enumerate(result.sources):
+        sources_data.append({
+            "index": i + 1,
+            "url": source["url"],
+            "content": source["content"],
+            "is_target": False,
+            "cited_without": (i + 1) in result.citations_without_targets,
+            "cited_with": (i + 1) in result.citations_with_targets,
+        })
+    # ターゲット部分
+    for ti in result.target_infos:
+        sources_data.append({
+            "index": ti.target_index,
+            "url": ti.target_url,
+            "content": content_by_id[ti.target_id],
+            "is_target": True,
+            "target_id": ti.target_id,
+            "cited_with": ti.target_index in result.citations_with_targets,
+        })
+    save_json(output_dir, "sources.json", sources_data)
 
+    # 回答（ターゲットなし）
     answer_without_data = {
         "question": question,
         "include_target": False,
         "answer": result.answer_without_targets,
-        "references": references_without
     }
     save_json(output_dir, "answer_without.json", answer_without_data)
 
@@ -144,41 +156,18 @@ def save_results(
         ])
     save_csv(output_dir, "metrics_without.csv", metrics_headers, metrics_without_rows)
 
-    # === ターゲットありの出力（全ターゲット一括） ===
-    references_with = []
-    for i in sorted(result.citations_with_targets.keys()):
-        ti = target_by_index.get(i)
-        if ti:
-            references_with.append({
-                "index": i,
-                "url": ti.target_url,
-                "content": content_by_id[ti.target_id],
-                "is_target": True,
-                "target_id": ti.target_id
-            })
-        else:
-            source_idx = i - 1
-            if 0 <= source_idx < len(result.sources):
-                source = result.sources[source_idx]
-                references_with.append({
-                    "index": i,
-                    "url": source["url"],
-                    "content": source["content"],
-                    "is_target": False
-                })
-
     # ターゲット情報をまとめる
     targets_info = [
         {"id": ti.target_id, "url": ti.target_url, "index": ti.target_index}
         for ti in result.target_infos
     ]
 
+    # 回答（ターゲットあり）
     answer_with_data = {
         "question": question,
         "include_target": True,
         "targets": targets_info,
         "answer": result.answer_with_targets,
-        "references": references_with
     }
     save_json(output_dir, "answer_with.json", answer_with_data)
 

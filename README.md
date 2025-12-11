@@ -61,10 +61,11 @@ python run_geo_bench.py
 ```
 outputs/YYYYMMDD_HHMMSS/
 ├── config.json          # 実行設定
-├── answer_without.json  # 回答（ターゲットなし）
-├── answer_with.json     # 回答（全ターゲットあり）
-├── metrics_without.csv  # 引用メトリクス（ターゲットなし）
-└── metrics_with.csv     # 引用メトリクス（全ターゲットあり）
+├── sources.json         # 全ソース+ターゲット（cited_without/cited_with両方）
+├── answer_without.json  # 回答のみ
+├── answer_with.json     # 回答のみ（ターゲット情報含む）
+├── metrics_without.csv  # 引用メトリクス（citedのみ）
+└── metrics_with.csv     # 引用メトリクス（citedのみ）
 ```
 
 ## メトリクス
