@@ -97,6 +97,10 @@ def save_results(
 ):
     """結果をファイルに保存"""
 
+    # ルックアップ用辞書を構築
+    target_by_index = {ti.target_index: ti for ti in result.target_infos}
+    content_by_id = {tc["id"]: tc["content"] for tc in target_contents}
+
     # 回答（ターゲットなし）
     references_without = []
     for i in sorted(result.citations_without_targets.keys()):
@@ -141,22 +145,16 @@ def save_results(
     save_csv(output_dir, "metrics_without.csv", metrics_headers, metrics_without_rows)
 
     # === ターゲットありの出力（全ターゲット一括） ===
-    # referencesに実際のWebコンテンツを含める
     references_with = []
     for i in sorted(result.citations_with_targets.keys()):
-        # このインデックスがターゲットかどうか確認
-        target_info = next((ti for ti in result.target_infos if ti.target_index == i), None)
-        if target_info:
-            target_content = next(
-                (tc["content"] for tc in target_contents if tc["id"] == target_info.target_id),
-                ""
-            )
+        ti = target_by_index.get(i)
+        if ti:
             references_with.append({
                 "index": i,
-                "url": target_info.target_url,
-                "content": target_content,
+                "url": ti.target_url,
+                "content": content_by_id[ti.target_id],
                 "is_target": True,
-                "target_id": target_info.target_id
+                "target_id": ti.target_id
             })
         else:
             source_idx = i - 1
@@ -188,11 +186,11 @@ def save_results(
     metrics_with_rows = []
     for i in sorted(result.citations_with_targets.keys()):
         m = result.citations_with_targets[i]
-        target_info = next((ti for ti in result.target_infos if ti.target_index == i), None)
-        if target_info:
-            url = target_info.target_url
+        ti = target_by_index.get(i)
+        if ti:
+            url = ti.target_url
             is_target = "Yes"
-            target_id = target_info.target_id
+            target_id = ti.target_id
         else:
             source_idx = i - 1
             url = result.sources[source_idx]["url"]
