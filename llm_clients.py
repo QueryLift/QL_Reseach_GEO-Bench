@@ -151,7 +151,7 @@ class ClaudeClient(LLMClient):
         await self._wait_for_rate_limit()
         response = await self.async_client.messages.create(
             model=self.MODEL,
-            max_tokens=4096,
+            max_tokens=20000,
             messages=[{"role": "user", "content": prompt}],
         )
         return self._extract_text(response)
@@ -162,7 +162,7 @@ class ClaudeClient(LLMClient):
 
         response = await self.async_client.messages.create(
             model=self.MODEL,
-            max_tokens=4096,
+            max_tokens=20000,
             messages=[{"role": "user", "content": f"Search for: {query}"}],
             tools=[{
                 "type": "web_search_20250305",
@@ -178,14 +178,14 @@ class ClaudeClient(LLMClient):
         for block in response.content:
             # web_search_tool_result からURLを抽出
             if hasattr(block, 'type') and block.type == 'web_search_tool_result':
-                if hasattr(block, 'content'):
+                if hasattr(block, 'content') and block.content:
                     for result in block.content:
                         if hasattr(result, 'url') and result.url not in seen_urls:
                             seen_urls.add(result.url)
                             results.append({"url": result.url})
 
             # テキストブロックの引用からもURLを抽出
-            if hasattr(block, 'citations'):
+            if hasattr(block, 'citations') and block.citations:
                 for citation in block.citations:
                     if hasattr(citation, 'url') and citation.url not in seen_urls:
                         seen_urls.add(citation.url)
@@ -267,10 +267,10 @@ class GeminiClient(LLMClient):
         # candidates から grounding_metadata を取得
         if hasattr(response, 'candidates') and response.candidates:
             candidate = response.candidates[0]
-            if hasattr(candidate, 'grounding_metadata'):
+            if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
                 metadata = candidate.grounding_metadata
                 # grounding_chunks からURLを抽出
-                if hasattr(metadata, 'grounding_chunks'):
+                if hasattr(metadata, 'grounding_chunks') and metadata.grounding_chunks:
                     for chunk in metadata.grounding_chunks:
                         if hasattr(chunk, 'web') and hasattr(chunk.web, 'uri'):
                             url = chunk.web.uri

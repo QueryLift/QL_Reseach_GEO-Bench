@@ -100,14 +100,16 @@ def save_results(
     # ルックアップ用辞書を構築
     target_by_index = {ti.target_index: ti for ti in result.target_infos}
     content_by_id = {tc["id"]: tc["content"] for tc in target_contents}
+    num_targets = len(result.target_infos)
 
     # === ソースファイル（統合）===
-    # Webソース + ターゲット（cited_without/cited_with両方）
+    # sources_with_targets の構造: [Webソース1, ..., WebソースN, ターゲット1, ターゲット2, ...]
+    num_sources = len(result.sources)
     sources_data = []
-    # Webソース部分
+    # Webソース部分（先頭、インデックス 1〜num_sources）
     for i, source in enumerate(result.sources):
         sources_data.append({
-            "index": i + 1,
+            "index": i + 1,  # without/with 両方で同じインデックス
             "url": source["url"],
             "content": source["content"],
             "media_type": source["media_type"],
@@ -115,7 +117,7 @@ def save_results(
             "cited_without": (i + 1) in result.citations_without_targets,
             "cited_with": (i + 1) in result.citations_with_targets,
         })
-    # ターゲット部分
+    # ターゲット部分（末尾、インデックス num_sources+1〜）
     for ti in result.target_infos:
         sources_data.append({
             "index": ti.target_index,
@@ -174,6 +176,7 @@ def save_results(
     save_json(output_dir, "answer_with.json", answer_with_data)
 
     # 引用メトリクス CSV（ターゲットあり）
+    # sources_with_targets の構造: [Webソース1, ..., WebソースN, ターゲット1, ...]
     metrics_with_rows = []
     for i in sorted(result.citations_with_targets.keys()):
         m = result.citations_with_targets[i]
@@ -183,6 +186,7 @@ def save_results(
             is_target = "Yes"
             target_id = ti.target_id
         else:
+            # Webソースのインデックス: i - 1 (0-indexed, Webソースは先頭)
             source_idx = i - 1
             url = result.sources[source_idx]["url"]
             is_target = "No"

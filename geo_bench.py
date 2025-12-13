@@ -214,6 +214,17 @@ class WebContentFetcher:
             )
         return self._client
 
+    def _is_pdf(self, response: httpx.Response, url: str) -> bool:
+        """Content-TypeヘッダーまたはURLからPDFかどうかを判定"""
+        # Content-Typeヘッダーを優先（リダイレクト後のヘッダー）
+        content_type = response.headers.get("content-type", "").lower()
+        if "application/pdf" in content_type:
+            return True
+        # フォールバック: URL末尾で判定
+        if url.lower().endswith('.pdf'):
+            return True
+        return False
+
     async def fetch(self, url: str) -> tuple[str, str]:
         """
         URLからテキストコンテンツを取得
@@ -226,8 +237,8 @@ class WebContentFetcher:
             response = await client.get(url)
             response.raise_for_status()
 
-            # PDFの場合
-            if url.lower().endswith('.pdf'):
+            # PDFの場合（Content-TypeヘッダーまたはURL末尾で判定）
+            if self._is_pdf(response, url):
                 text = self._extract_pdf(response.content)
                 media_type = "PDF"
             else:
@@ -358,6 +369,8 @@ class GEOBench:
                 target_url=target["url"],
                 target_index=target_index,
             ))
+
+        # sources_with_targets.extend(sources.copy())
 
         # 4. without/with を並列で回答生成
         print("[API] without/with: 回答生成中（並列）...")
