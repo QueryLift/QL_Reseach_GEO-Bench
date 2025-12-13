@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from llm_clients import create_llm_client
-from ql_geo_bench import (
+from geo_bench import (
     GEOBench,
     TargetContent,
     GEOBenchResult,
