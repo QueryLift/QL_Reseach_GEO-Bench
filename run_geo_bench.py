@@ -19,8 +19,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
+from llm_clients import create_llm_client
 from ql_geo_bench import (
-    LLMClient,
     GEOBench,
     TargetContent,
     GEOBenchResult,
@@ -233,9 +233,11 @@ async def run_benchmark(
     question: str,
     target_contents: list[TargetContent],
     max_sources: int,
+    provider: str = "gpt",
 ) -> GEOBenchResult:
     """GEO-bench を実行"""
-    llm = LLMClient()
+    llm = create_llm_client(provider)
+    print(f"[LLM] {llm.name}")
     bench = GEOBench(llm=llm, target_contents=target_contents, max_sources=max_sources)
 
     try:
@@ -252,6 +254,7 @@ async def main():
     question = config.get("question")
     output_base_dir = config.get("output_dir", "outputs")
     max_sources = config.get("max_sources", 5)
+    provider = config.get("provider", "gpt")  # "gpt", "claude", "gemini"
     targets_config = config.get("targets", [])
 
     # バリデーション
@@ -269,6 +272,7 @@ async def main():
     # 実行設定を保存
     save_json(output_dir, "config.json", {
         "question": question,
+        "provider": provider,
         "targets": targets_config,
         "max_sources": max_sources,
         "timestamp": datetime.now().isoformat()
@@ -284,6 +288,7 @@ async def main():
         question=question,
         target_contents=target_contents,
         max_sources=max_sources,
+        provider=provider,
     )
 
     # 結果を保存

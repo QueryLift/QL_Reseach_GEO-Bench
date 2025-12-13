@@ -12,13 +12,22 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 依存パッケージをインストール
-pip install openai httpx beautifulsoup4 python-dotenv pdfplumber
+pip install openai anthropic google-genai httpx beautifulsoup4 python-dotenv pdfplumber
 ```
 
-`.env` ファイルを作成：
+`.env` ファイルを作成（使用するプロバイダーに応じて設定）：
 
 ```
+# GPT (OpenAI) を使用する場合
 OPENAI_API_KEY=sk-your-api-key-here
+
+# Claude (Anthropic) を使用する場合
+ANTHROPIC_API_KEY=sk-ant-your-api-key-here
+
+# Gemini (Google) を使用する場合
+GOOGLE_API_KEY=your-google-api-key-here
+
+# レートリミット（オプション）
 LLM_RATE_LIMIT_INTERVAL=2.0
 ```
 
@@ -29,6 +38,7 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 ```json
 {
   "question": "質問文",
+  "provider": "gpt",
   "targets": [
     {
       "id": "target_1",
@@ -41,6 +51,14 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 }
 ```
 
+### プロバイダー
+
+| provider | モデル | Web検索方式 |
+|----------|--------|-------------|
+| `gpt` | gpt-5 | web_search ツール |
+| `claude` | claude-sonnet-4-5-20250929 | web_search_20250305 |
+| `gemini` | gemini-2.5-flash | Google検索グラウンディング |
+
 ## 実行
 
 ```bash
@@ -49,7 +67,7 @@ python run_geo_bench.py
 
 ## 処理フロー
 
-1. **Web検索** - `gpt-5` + `web_search` ツールでソースURLを取得
+1. **Web検索** - 選択したプロバイダーのWeb検索機能でソースURLを取得
 2. **コンテンツ取得** - 各URLからHTML/PDFを取得しテキスト抽出（並列処理）
 3. **回答生成** - without/with を `asyncio.gather` で並列実行
 

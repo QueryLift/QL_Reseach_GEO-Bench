@@ -13,14 +13,14 @@ import asyncio
 import io
 import os
 import re
-import time
 from dataclasses import dataclass, field
 from typing import TypedDict
 
 import httpx
-import openai
 import pdfplumber
 from bs4 import BeautifulSoup
+
+from llm_clients import LLMClient
 
 
 # =============================================================================
@@ -188,86 +188,6 @@ class CitationAnalyzer:
         """文から引用インデックスを抽出"""
         matches = self.CITATION_PATTERN.findall(sentence)
         return [int(m) for m in matches]
-
-
-# =============================================================================
-# LLM Client
-# =============================================================================
-
-class LLMClient:
-    """OpenAI API クライアント"""
-
-    def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY が設定されていません")
-
-        self.async_client = openai.AsyncOpenAI(api_key=api_key)
-
-        # レートリミット設定
-        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "0.5"))
-        self._rate_limit_lock = asyncio.Lock()
-        self._last_call_time = 0.0
-
-    @staticmethod
-    def _extract_text(response) -> str:
-        """Responses API からテキストを抽出"""
-        text = (response.output_text or "").strip()
-        if not text:
-            raise RuntimeError("LLM からのレスポンスにテキストが含まれていません")
-        return text
-
-    async def _wait_for_rate_limit(self):
-        """レートリミットを待機"""
-        async with self._rate_limit_lock:
-            now = time.time()
-            wait_time = self.rate_limit_interval - (now - self._last_call_time)
-            if wait_time > 0:
-                await asyncio.sleep(wait_time)
-            self._last_call_time = time.time()
-
-    async def acall_standard(self, prompt: str) -> str:
-        """非同期で gpt-5 を呼び出し"""
-        await self._wait_for_rate_limit()
-        response = await self.async_client.responses.create(
-            model="gpt-5",
-            reasoning={"effort": "low"},
-            input=prompt,
-        )
-        return self._extract_text(response)
-
-    async def search_web(self, query: str, max_results: int = 5) -> list[dict]:
-        """
-        Web検索を実行してソースURLを取得
-
-        OpenAI の web_search_preview ツールを使用
-        """
-        await self._wait_for_rate_limit()
-
-        response = await self.async_client.responses.create(
-            model="gpt-5",
-            tools=[
-                { "type": "web_search" },
-            ],
-            input=f"Search for: {query}",
-        )
-
-        # 検索結果からURLを抽出
-        results = []
-        if hasattr(response, 'output') and response.output:
-            for item in response.output:
-                if hasattr(item, 'type') and item.type == 'web_search_call':
-                    # web_search_call の結果を解析
-                    pass
-
-        # output_text からURLを抽出（フォールバック）
-        text = response.output_text or ""
-        urls = re.findall(r'https?://[^\s\)]+', text)
-
-        for url in urls[:max_results]:
-            results.append({"url": url.rstrip('.,;:')})
-
-        return results
 
 
 # =============================================================================

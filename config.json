@@ -1,5 +1,6 @@
 {
   "question": "自民党が教育分野でどのような方針を打ち出しているか、ざっくり知りたいです。",
+  "provider": "gpt",
   "targets": [
     {
       "id": "jimin_education",
