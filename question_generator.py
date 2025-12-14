@@ -46,8 +46,10 @@ class GeneratedQuestions(TypedDict):
 QUESTION_TYPES = ["vague", "experiment", "aligned"]
 
 # 質問生成プロンプト
-QUESTION_GENERATION_PROMPT = """あなたは技術記事に関する質問を生成するアシスタントです。
+QUESTION_GENERATION_PROMPT = """あなたはOpenAIの技術記事に関する質問を生成するアシスタントです。
 以下のターゲット記事のタイトルと内容に基づいて、3種類の質問を日本語で生成してください。
+
+【重要】すべての質問は「OpenAIがどのような情報を発信しているか」を聞く形式にしてください。
 
 【ターゲット記事】
 タイトル: {title}
@@ -59,21 +61,22 @@ QUESTION_GENERATION_PROMPT = """あなたは技術記事に関する質問を生
 ターゲットのタイトルを「二段階」抽象化した、広いカテゴリーについて総合的に知りたいという質問。
 具体的なテーマ名は出さず、上位概念で聞く。
 例:
-- タイトル「GPT-4 Turbo」→「OpenAIの大規模言語モデルについて教えてください。」
-- タイトル「Function Calling」→「LLMのAPI機能について教えてください。」
-- タイトル「Whisper API」→「音声認識技術について教えてください。」
+- タイトル「GPT-4 Turbo」→「OpenAIのAI技術について教えてください。」
+- タイトル「Function Calling」→「OpenAIのAPI機能について教えてください。」
+- タイトル「Whisper API」→「OpenAIの音声技術について教えてください。」
+- タイトル「DALL-E 3」→「OpenAIの画像生成技術について教えてください。」
 
 2. experiment（中間的な質問）:
 ターゲットのタイトルのテーマについて、全体像や基本的な特徴を聞く質問。
 タイトルのテーマ名は使うが、記事の詳細には踏み込まない。
 例:
-- タイトル「GPT-4 Turbo」→「GPT-4 Turboの基本的な特徴を教えてください。」
-- タイトル「Function Calling」→「Function Callingの概要と使い方を知りたいです。」
+- タイトル「GPT-4 Turbo」→「OpenAIのGPT-4 Turboについて教えてください。」
+- タイトル「Function Calling」→「OpenAIのFunction Callingとは何ですか？」
 
 3. aligned（最も具体的な質問）:
 ターゲットの記事内容に完全に沿った、具体的で詳細な質問。
 記事に登場する具体的な機能、数値、技術用語などを含めて深く聞く。
-例: 「GPT-4 TurboのJSON modeはどのように動作し、どのようなユースケースで活用できますか？また、従来のGPT-4と比較してコンテキスト長やレスポンス速度はどの程度改善されていますか？」
+例: 「OpenAIのGPT-4 TurboのJSON modeはどのように動作し、どのようなユースケースで活用できますか？また、従来のGPT-4と比較してコンテキスト長やレスポンス速度はどの程度改善されていますか？」
 
 【出力形式】
 以下のJSON形式で出力してください。余計な説明は不要です。
@@ -144,9 +147,9 @@ class QuestionGenerator:
             print(f"レスポンス: {response[:200]}...")
             # フォールバック: デフォルトの質問を返す
             return GeneratedQuestions(
-                vague=f"{title}について教えてください。",
-                experiment=f"{title}の概要と特徴を教えてください。",
-                aligned=f"{title}の具体的な内容を詳しく教えてください。",
+                vague="OpenAIのAI技術について教えてください。",
+                experiment=f"OpenAIの{title}について教えてください。",
+                aligned=f"OpenAIの{title}の具体的な内容を詳しく教えてください。",
             )
 
 
