@@ -360,6 +360,52 @@ class WebContentFetcher:
 
         return driver
 
+    def _quit_driver_safely(self, driver: webdriver.Chrome) -> None:
+        """ドライバーを安全に終了（プロセスを先に強制終了してから quit）"""
+        if driver is None:
+            return
+
+        try:
+            # ChromeDriverサービスプロセスとChromeプロセスのPIDを取得
+            service_pid = None
+            chrome_pid = None
+
+            if hasattr(driver, 'service') and driver.service and driver.service.process:
+                service_pid = driver.service.process.pid
+
+            # Chromeブラウザプロセスを取得（service.process経由）
+            try:
+                # driver.service.process は ChromeDriver のプロセス
+                # 子プロセスとして Chrome が起動している
+                import psutil
+                if service_pid:
+                    parent = psutil.Process(service_pid)
+                    children = parent.children(recursive=True)
+                    for child in children:
+                        try:
+                            child.kill()
+                        except Exception:
+                            pass
+            except ImportError:
+                pass  # psutilがなければスキップ
+            except Exception:
+                pass
+
+            # ChromeDriverプロセスを強制終了（quit()の60秒タイムアウトを回避）
+            if service_pid:
+                try:
+                    os.kill(service_pid, signal.SIGKILL)
+                except (OSError, ProcessLookupError):
+                    pass
+
+            # quit()を呼ぶ（プロセスは既に死んでいるので即座に終了）
+            try:
+                driver.quit()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     async def _get_http_client(self) -> httpx.AsyncClient:
         """PDF取得用のhttpxクライアントを取得"""
         if self._http_client is None:
@@ -425,21 +471,17 @@ class WebContentFetcher:
 
             except TimeoutException:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES}): {final_url}")
+                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
                     continue
                 raise Exception(f"ページ読み込みタイムアウト ({self.PAGE_LOAD_TIMEOUT}秒)")
             except WebDriverException as e:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {final_url} - {e}")
+                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url} - {e}")
                     continue
                 raise Exception(f"Seleniumエラー: {e}")
             finally:
-                # ドライバーを終了
-                if driver:
-                    try:
-                        driver.quit()
-                    except Exception:
-                        pass
+                # ドライバーを安全に終了
+                self._quit_driver_safely(driver)
                 # 一時ディレクトリをクリーンアップ
                 _cleanup_chrome_temp_dir(user_data_dir)
 

@@ -39,7 +39,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 依存パッケージをインストール
-pip install openai anthropic google-genai httpx beautifulsoup4 python-dotenv pdfplumber selenium webdriver-manager
+pip install openai anthropic google-genai httpx beautifulsoup4 python-dotenv pdfplumber selenium webdriver-manager psutil
 ```
 
 `.env` ファイルを作成（使用するプロバイダーに応じて設定）：
@@ -158,6 +158,12 @@ GEO論文 Section 2.2.1 に基づく：
 | imp_pwc | 式(3) Imp_pwc | 位置重み付きワードカウント (%) |
 | citation_frequency | - | 引用回数 |
 | first_position | - | 最初に引用された位置 |
+
+## 実行結果データ
+
+実験の実行結果データは以下のGoogle Driveで公開しています：
+
+- [実行結果データ (Google Drive)](https://drive.google.com/drive/folders/10aZiDYnIZuNKdPqDujumbsonPiPiORVm?usp=sharing)
 
 ## 参考文献
 
