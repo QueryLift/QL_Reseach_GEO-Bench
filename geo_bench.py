@@ -1,17 +1,19 @@
 """
-GEO-bench Emulator
-==================
-GEO (Generative Engine Optimization) 論文に基づく Web 検索エミュレータ。
-target_contents の有無による引用パターンの差分をトレースする。
+GEO-bench Core Components
+=========================
+GEO (Generative Engine Optimization) 論文に基づく引用分析とWebコンテンツ取得。
+
+提供するコンポーネント:
+- CitationAnalyzer: LLM回答の引用パターンを分析
+- WebContentFetcher: WebページのコンテンツをHTML/PDFから取得
+- strip_markdown: Markdownをプレーンテキストに変換
 
 Reference: Aggarwal et al., "GEO: Generative Engine Optimization", KDD 2024
 """
 
 from __future__ import annotations
 
-import asyncio
 import io
-import os
 import re
 from dataclasses import dataclass, field
 from typing import TypedDict
@@ -19,8 +21,6 @@ from typing import TypedDict
 import httpx
 import pdfplumber
 from bs4 import BeautifulSoup
-
-from llm_clients import LLMClient
 
 
 # =============================================================================
@@ -45,13 +45,6 @@ class Citation:
     first_pos: int | None = None  # 最初に引用された位置
 
 
-class TargetContent(TypedDict):
-    """ターゲットコンテンツの型定義（ID付き）"""
-    id: str
-    url: str
-    content: str
-
-
 @dataclass
 class CitationMetrics:
     """
@@ -71,35 +64,6 @@ class CitationMetrics:
     imp_pwc: float = 0.0
     citation_frequency: int = 0
     first_citation_position: int | None = None
-
-
-@dataclass
-class TargetInfo:
-    """ターゲット情報"""
-    target_id: str
-    target_url: str
-    target_index: int  # sources_with_targets 内でのインデックス（1-indexed）
-
-
-@dataclass
-class GEOBenchResult:
-    """GEO-bench 実行結果"""
-    question: str
-
-    # ターゲットなしの結果
-    answer_without_targets: str
-    citations_without_targets: dict[int, CitationMetrics]
-
-    # 全ターゲットを含む結果（1回の回答生成）
-    answer_with_targets: str
-    citations_with_targets: dict[int, CitationMetrics]
-
-    # ターゲット情報（どのインデックスがどのターゲットか）
-    target_infos: list[TargetInfo] = field(default_factory=list)
-
-    # Web検索で取得したソース（ターゲットを含まない）
-    sources: list[SourceContent] = field(default_factory=list)
-
 
 
 # =============================================================================
@@ -225,20 +189,23 @@ class WebContentFetcher:
             return True
         return False
 
-    async def fetch(self, url: str) -> tuple[str, str]:
+    async def fetch(self, url: str) -> tuple[str, str, str]:
         """
         URLからテキストコンテンツを取得
 
         Returns:
-            (content, media_type): コンテンツとメディアタイプ（"PDF" or "HTML"）
+            (content, media_type, final_url): コンテンツ、メディアタイプ、リダイレクト後の最終URL
         """
         try:
             client = await self._get_client()
             response = await client.get(url)
             response.raise_for_status()
 
+            # リダイレクト後の最終URL
+            final_url = str(response.url)
+
             # PDFの場合（Content-TypeヘッダーまたはURL末尾で判定）
-            if self._is_pdf(response, url):
+            if self._is_pdf(response, final_url):
                 text = self._extract_pdf(response.content)
                 media_type = "PDF"
             else:
@@ -256,12 +223,16 @@ class WebContentFetcher:
             if len(text) > self.MAX_CONTENT_LENGTH:
                 text = text[:self.MAX_CONTENT_LENGTH] + "..."
 
-            print(f"[Web] {media_type} {len(text)}文字 <- {url}")
-            return text, media_type
+            # リダイレクトがあった場合はログに表示
+            if final_url != url:
+                print(f"[Web] {media_type} {len(text)}文字 <- {url} -> {final_url}")
+            else:
+                print(f"[Web] {media_type} {len(text)}文字 <- {url}")
+            return text, media_type, final_url
 
         except Exception as e:
             print(f"[Web] エラー <- {url}: {e}")
-            return f"[Error fetching {url}: {e}]", "ERROR"
+            return f"[Error fetching {url}: {e}]", "ERROR", url
 
     def _extract_html(self, html: str) -> str:
         """HTMLからテキストを抽出"""
@@ -292,162 +263,6 @@ class WebContentFetcher:
         if self._client:
             await self._client.aclose()
             self._client = None
-
-
-# =============================================================================
-# GEO Bench
-# =============================================================================
-
-class GEOBench:
-    """
-    GEO-bench エミュレータ
-
-    GEO論文に基づき、Generative Engine の動作をエミュレートし、
-    target_contents の有無による引用パターンの差分を分析する。
-    複数ターゲットに対応。
-    """
-
-    # GEO論文 Listing 1 のプロンプト
-    PROMPT_TEMPLATE = """Write an accurate and concise answer for the given user question, using _only_ the provided summarized web search results.
-    The answer should be correct, high-quality, and written by an expert using an unbiased and journalistic tone. The user's language of choice such as English, Francais, Espamol, Deutsch, or Japanese should be used. The answer should be informative, interesting, and engaging. The answer's logic and reasoning should be rigorous and defensible. Every sentence in the answer should be _immediately followed_ by an in-line citation to the search result(s). The cited search result(s) should fully support _all_ the information in the sentence. Search results need to be cited using [index]. When citing several search results, use [1][2][3] format rather than [1, 2, 3]. You can use multiple search results to respond comprehensively while avoiding irrelevant search results.
-
-    Question: {question}
-
-    Search Results:
-    {sources}"""
-
-    def __init__(
-        self,
-        llm: LLMClient,
-        target_contents: list[TargetContent],
-        max_sources: int = 5,
-    ):
-        """
-        Args:
-            llm: LLMクライアント
-            target_contents: 比較対象のコンテンツリスト（各要素は id, url, content を含む辞書）
-            max_sources: 取得するソースの最大数
-        """
-        self.llm = llm
-        self.target_contents = target_contents
-        self.max_sources = max_sources
-        self.fetcher = WebContentFetcher()
-        self.analyzer = CitationAnalyzer()
-
-    async def run(self, question: str) -> GEOBenchResult:
-        """
-        GEO-bench を実行
-
-        Args:
-            question: ユーザーの質問
-
-        Returns:
-            GEOBenchResult: 比較結果（全ターゲット一括）
-        """
-        # 1. Web検索でソースを取得
-        print("[API] search_reference: Web検索を実行中...")
-        source_urls = await self._search_web(question)
-
-        # 2. 各ソースのコンテンツを取得
-        sources = await self._fetch_sources(source_urls)
-
-        # 3. ターゲットありのソースリストを事前構築
-        sources_with_targets = sources.copy()
-        target_infos: list[TargetInfo] = []
-
-        for target in self.target_contents:
-            target_source: SourceContent = {
-                "url": target["url"],
-                "content": target["content"],
-                "media_type": "TARGET",
-            }
-            sources_with_targets.append(target_source)
-            target_index = len(sources_with_targets)  # 1-indexed（追加後の長さ）
-
-            target_infos.append(TargetInfo(
-                target_id=target["id"],
-                target_url=target["url"],
-                target_index=target_index,
-            ))
-
-        # sources_with_targets.extend(sources.copy())
-
-        # 4. without/with を並列で回答生成
-        print("[API] without/with: 回答生成中（並列）...")
-        answer_without, answer_with = await asyncio.gather(
-            self._generate_answer(question, sources),
-            self._generate_answer(question, sources_with_targets),
-        )
-
-        # 5. メトリクス計算
-        metrics_without = self.analyzer.analyze(answer_without, sources)
-        metrics_with = self.analyzer.analyze(answer_with, sources_with_targets)
-
-        return GEOBenchResult(
-            question=question,
-            answer_without_targets=answer_without,
-            citations_without_targets=metrics_without,
-            answer_with_targets=answer_with,
-            citations_with_targets=metrics_with,
-            target_infos=target_infos,
-            sources=sources,
-        )
-
-    async def _search_web(self, query: str) -> list[str]:
-        """Web検索を実行してURLリストを取得"""
-        results = await self.llm.search_web(query, max_results=self.max_sources)
-        return [r["url"] for r in results if "url" in r]
-
-    async def _fetch_sources(self, urls: list[str]) -> list[SourceContent]:
-        """複数のURLからコンテンツを並列取得"""
-        tasks = [self.fetcher.fetch(url) for url in urls]
-        results = await asyncio.gather(*tasks)
-
-        sources: list[SourceContent] = []
-        for url, (content, media_type) in zip(urls, results):
-            sources.append({
-                "url": url,
-                "content": content,
-                "media_type": media_type,
-            })
-
-        return sources
-
-    async def _generate_answer(
-        self,
-        question: str,
-        sources: list[SourceContent],
-    ) -> str:
-        """ソースを使って回答を生成"""
-        prompt = self._build_prompt(question, sources)
-        return await self.llm.acall_standard(prompt)
-
-    def _build_prompt(
-        self,
-        question: str,
-        sources: list[SourceContent],
-    ) -> str:
-        """GEO論文のプロンプトを構築"""
-        sources_text = self._format_sources(sources)
-        return self.PROMPT_TEMPLATE.format(
-            question=question,
-            sources=sources_text,
-        )
-
-    def _format_sources(self, sources: list[SourceContent]) -> str:
-        """ソースをプロンプト用にフォーマット"""
-        lines = []
-        for i, source in enumerate(sources, 1):
-            url = source["url"]
-            content = source["content"]
-            lines.append(f"[{i}] URL: {url}")
-            lines.append(f"    Content: {content}")
-            lines.append("")
-        return "\n".join(lines)
-
-    async def close(self):
-        """リソースをクリーンアップ"""
-        await self.fetcher.close()
 
 
 # =============================================================================

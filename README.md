@@ -62,8 +62,26 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 ## 実行
 
 ```bash
-python run_geo_bench.py
+# 基本実行（出力フォルダ名はタイムスタンプ）
+python run_experiment.py
+
+# 出力フォルダ名を指定
+python run_experiment.py -o my_experiment
+
+# 質問生成のみ（実験は実行しない）
+python run_experiment.py --generate-only
+
+# 生成された質問を表示
+python run_experiment.py --show-questions
 ```
+
+### コマンドライン引数
+
+| 引数 | 説明 |
+|------|------|
+| `-o, --output-name` | 出力フォルダ名（省略時はタイムスタンプ `YYYYMMDD_HHMMSS`） |
+| `--generate-only` | 質問生成のみを実行（実験は実行しない） |
+| `--show-questions` | 生成された質問を表示 |
 
 ## 処理フロー
 
@@ -76,14 +94,30 @@ python run_geo_bench.py
 ## 出力ファイル
 
 ```
-outputs/YYYYMMDD_HHMMSS/
-├── config.json          # 実行設定
-├── sources.json         # 全ソース+ターゲット（cited_without/cited_with両方）
-├── answer_without.json  # 回答のみ
-├── answer_with.json     # 回答のみ（ターゲット情報含む）
-├── metrics_without.csv  # 引用メトリクス（citedのみ）
-└── metrics_with.csv     # 引用メトリクス（citedのみ）
+outputs/{output_name}/
+├── config.json                      # 実験設定
+├── summary.json                     # 全体サマリー
+├── {domain}/
+│   ├── summary.json                 # ドメインサマリー
+│   └── {provider}/
+│       └── {question_type}/
+│           └── {target_id}/
+│               ├── summary.json     # ターゲットサマリー
+│               ├── sources.json     # 取得ソース一覧
+│               └── run_{n}/
+│                   ├── answer_without.json
+│                   ├── answer_with.json
+│                   ├── metrics_without.json
+│                   └── metrics_with.json
 ```
+
+### 質問タイプ
+
+| タイプ | 説明 |
+|--------|------|
+| `vague` | 最も抽象的（二段階抽象化した広いカテゴリー） |
+| `experiment` | 中間的（タイトルのテーマで質問） |
+| `aligned` | 最も具体的（記事内容に沿った詳細な質問） |
 
 ## メトリクス
 
