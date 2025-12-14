@@ -71,18 +71,33 @@ from file_output import (
 # =============================================================================
 
 # 実験設定
+# EXPERIMENT_CONFIG = {
+#     "providers": ["gpt"],                # 使用するプロバイダー
+#     "num_runs": 2,                        # 各ターゲットの繰り返し回数
+#     "max_sources": 5,                     # Web検索で取得するソース数
+#     "targets_dir": "openai_targets",             # ターゲットファイルのディレクトリ
+#     "output_dir": "outputs",              # 出力ディレクトリ
+#     "questions_cache_file": "openai-questions.json",  # 質問キャッシュファイル
+#     # 一次情報源と判定するドメイン（部分一致）
+#     "primary_domains": [
+#         "openai.com",
+#         "chatgpt.com"
+#     ],
+#     # 質問生成プロンプトタイプ: "openai" or "jimin"
+#     "prompt_type": "openai",
+# }
+
+
 EXPERIMENT_CONFIG = {
-    "providers": ["gpt"],                # 使用するプロバイダー
+    "providers": ["gemini"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
     "targets_dir": "jimin_targets",             # ターゲットファイルのディレクトリ
     "output_dir": "outputs",              # 出力ディレクトリ
-    "questions_cache_file": "questions.json",  # 質問キャッシュファイル
+    "questions_cache_file": "jimin-questions.json",  # 質問キャッシュファイル
     # 一次情報源と判定するドメイン（部分一致）
     "primary_domains": [
-        # "openai.com",
-        # "chatgpt.com"
-        "jimin.jp",
+        "jimin.jp"
     ],
     # 質問生成プロンプトタイプ: "openai" or "jimin"
     "prompt_type": "jimin",
@@ -391,7 +406,8 @@ def format_sources(sources: list[SourceContent]) -> str:
     lines = []
     for i, source in enumerate(sources, 1):
         url = source["url"]
-        content = source["content"]
+        # コンテンツ内の改行は \n 文字列に変換（実際の改行にしない）
+        content = source["content"].replace("\n", "\\n")
         lines.append(f"[{i}] URL: {url}")
         lines.append(f"    Content: {content}")
         lines.append("")
@@ -622,12 +638,10 @@ class ExperimentRunner:
             # 2. ソースを取得
             sources = await self._fetch_sources(source_urls)
 
-            # 3. ターゲットをランダムな位置に挿入したソースリストを作成
-            # GEO論文に従い、ターゲットの位置バイアスを避けるためランダム挿入
+            # 3. ターゲットを最後に追加したソースリストを作成
             sources_with_targets = sources.copy()
-            insert_pos = random.randint(0, len(sources_with_targets))
-            sources_with_targets.insert(insert_pos, target_source)
-            target_index = insert_pos + 1  # 1-indexed
+            sources_with_targets.append(target_source)
+            target_index = len(sources_with_targets)  # 1-indexed (最後の位置)
 
             # ソースを保存
             save_sources(target_dir, sources)
@@ -674,23 +688,23 @@ class ExperimentRunner:
                 target_imp_pwc = target_metrics.imp_pwc if target_metrics else 0.0
 
                 # 一次情報源の引用率を計算（TARGETを一次情報源としてカウント）
-                # without: TARGETなし
+                # without: TARGETなし（sources のみ）
                 primary_rate_without = calc_primary_source_rate(
                     metrics_without, sources, self.primary_domains
                 )
-                # with: TARGETを一次情報源としてカウント
+                # with: sources_with_targets を使用（インデックスが正しく対応）
+                # TARGETは media_type="TARGET" で自動的に一次情報源として判定される
                 primary_rate_with = calc_primary_source_rate(
-                    metrics_with, sources, self.primary_domains,
-                    target_indices={target_index}
+                    metrics_with, sources_with_targets, self.primary_domains
                 )
 
                 # ソース別スコアを計算（TARGETを一次情報源としてカウント）
                 source_scores_without = calc_source_scores(
                     metrics_without, sources, self.primary_domains
                 )
+                # with: sources_with_targets を使用
                 source_scores_with = calc_source_scores(
-                    metrics_with, sources, self.primary_domains,
-                    target_indices={target_index}
+                    metrics_with, sources_with_targets, self.primary_domains
                 )
 
                 # withoutに非一次情報源があるかどうか（一次情報源率が100%未満）

@@ -13,5 +13,6 @@ phase4_category_mece.*
 
 # GEO-bench 出力
 outputs/
+outputs_old/
 geo_bench_output/
 questions.json

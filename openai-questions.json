@@ -1,0 +1,127 @@
+{
+  "phase4_category_mece_usage_01_API仕様・利用・開発者ガイド": {
+    "vague": "OpenAIが企業向けのAI活用に関して、方針・安全性・ガバナンスの観点でどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIの「政策ストーリーライン」について、全体像や基本姿勢・重点的取り組み・重要事実に関してどのような情報を発信しているか教えてください。",
+    "aligned": "OpenAIの「政策ストーリーライン」では、API経由の顧客データの学習不使用、AES‑256（保存時）/TLS 1.2+（転送時）、（特定エンドポイント除く）30日保持、SOC 2 Type 2・ISO 27001/27017/27018/27701・HIPAA BAA対応、Responses API/Realtime API/Agents SDKの強化、service_tier=\"priority\"と99.9% SLA、SAML SSO・MFA・RBAC・SCIM・Admin/Audit APIs・IP許可リスト・mTLS・データレジデンシー・ゼロデータ保持、Model Specとルールベース報酬（RBR）、2025年10月の使用ポリシー改訂、2025年11月のMixpanelインシデント対応、GPT‑5系/4.1系/4o・Sora 2・gpt‑realtime・スケールティア提供、DNPの週次アクティブ率100%・自動化率87%・処理量10倍などについて、具体的にどのような情報を発信していますか？"
+  },
+  "phase4_category_mece_usage_02_アカウント・アクセス管理と利用設定": {
+    "vague": "OpenAIはユーザーの安全性・透明性・データ保護に関して、どのような情報を発信していますか？",
+    "experiment": "OpenAIの「アカウント・アクセス管理と利用設定」について、どのような情報を発信しているか概要を教えてください。",
+    "aligned": "OpenAIは「アカウント・アクセス管理と利用設定」に関してどのような情報を発信していますか？具体的には、Business/Enterprise/EduおよびAPIのデータは既定で学習に使用しないこと、Free/Plus/Proでの学習利用オプトアウト、Temporary Chatでの履歴非表示・学習不使用・安全目的で最大30日間の保管、2025年9月導入のペアレンタルコントロール（DM/画像生成/時間制限/重大リスク時の保護者通知、年齢予測）、組織向けのSAML SSO・MFA・SCIM・RBAC・Enterprise Compliance API・監査ログ・データレジデンシー、2025年10月29日のUsage Policies更新と重大変更の30日前通知・異議申立て手続、SOC 2 Type 2やISO 27001/27017/27018/27701の認証、2025年11月のMixpanel事案への対応、ならびにアカウント削除・データ権利行使の窓口（privacy.openai.com、dsar@openai.com、privacy@openai.com）について教えてください。"
+  },
+  "phase4_category_mece_usage_03_コンテンツ識別・検出・モデレーション": {
+    "vague": "OpenAIはAIの安全性と透明性に関してどのような情報を発信していますか？",
+    "experiment": "OpenAIはコンテンツ識別・検出・モデレーションについてどのような情報を発信していますか？",
+    "aligned": "OpenAIは、コンテンツ識別・検出・モデレーションの多層アーキテクチャに関して、SoraのC2PAメタデータ埋め込みやデフォルト透かし、評価ハブのnotunsafe／notoverrefuse指標と重大カテゴリ別評価、ジェイルブレイク耐性、RBR×RLHFによる拒否一貫性と過剰拒否の抑制、Moderation API・Safety Reasoner・小型高再現率クラシファイア・オープンウェイトgpt‑oss‑safeguardの提供、選挙関連の欺瞞コンテンツ検出での再現率98.23%・フラグ率88.80%、HealthBenchを含む領域別改善、2025年2月の欧州データレジデンシーと企業データの学習不使用などについて、どのような情報を発信していますか？これらの要素がプロンプトフィルタ、ブロックリスト、分類器閾値調整、動的出力評価とどのように連携し、開発者が多層防御を再利用できる手段や透明性・外部検証の枠組みとしてどのように示されているかも教えてください。"
+  },
+  "phase4_category_mece_usage_04_データガバナンス・プライバシー（モデル学習・利用）": {
+    "vague": "OpenAIはプライバシー保護やデータガバナンス、法令遵守の全体像についてどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIは「データガバナンス・プライバシー（モデル学習・利用）」について、どのような基本方針や取り組み内容の情報を発信しているか教えてください。",
+    "aligned": "OpenAIは「データガバナンス・プライバシー（モデル学習・利用）」に関してどのような具体的情報を発信しているか、次を含めて教えてください：Business/Enterprise/APIのデータは既定でモデル学習に不使用であること、API入出力の保持が原則最大30日でゼロデータ保持オプションやファインチューニングデータの専用利用を採る点、2025年にかけたデータレジデンシー拡大と地域内処理・サーバー非保存などの高度なデータコントロール、暗号化（保存時AES‑256／送信時TLS 1.2+）、EKM、SSO/MFA/SCIM/RBAC、監査ログ、SOC 2 Type 2やISO 27001/27017/27018/27701等の第三者評価、2025年10月29日の使用ポリシー改訂（無断の顔認識DB、公的空間での遠隔生体認証、同意のない肖像の本物誤認利用等の禁止）とModel Spec、透明性レポートやKodex法的窓口、システムカード／C2PA透かし、gpt‑oss‑safeguard、自動検知＋人間レビューのモデレーションとユーザーの権利行使（アクセス・削除・移転・オプトアウト）について。"
+  },
+  "phase4_category_mece_usage_05_モデルのバイアス・公平性": {
+    "vague": "OpenAIが責任あるAIの開発・運用や公平性・安全性に関して、どのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIが「モデルのバイアス・公平性」について、全体像や基本方針をどのような情報として発信しているか教えてください。",
+    "aligned": "OpenAIが「モデルのバイアス・公平性」に関して発信している具体的な情報として、Model Specの設計原則と対話ガイドライン、HealthBench（60か国・262名の医師、約5,000の対話と4万超の評価ルーブリック）による評価、DALL·E 2の学習前フィルタリングに起因する分布シフト（例：CEOの男性偏重）と再重み付け等の設計、2025年12月1日に開始した最大200万ドルの研究助成、2025年10月29日の使用ポリシー改訂（無資格の個別助言や同意なき生体認証・プロファイリング等の禁止）、2025年9月18日更新の透明性・モデレーション体制、個人データの非販売・非共有・ターゲット広告不使用、学習オプトアウトや誤執行への異議申立て、60日の非公式解決と仲裁オプトアウト（30日以内）などについて、どのような情報を発信しているか具体的に教えてください。"
+  },
+  "phase4_category_mece_usage_06_モデル公開・提供・ポートフォリオ": {
+    "vague": "OpenAIが自社のAIと安全性に関して、全体としてどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIが「モデル公開・提供・ポートフォリオ」について、どのような情報を発信しているか教えてください。",
+    "aligned": "OpenAIが「モデル公開・提供・ポートフォリオ」に関して、GPT‑5.2の評価（SWE‑Bench Verified 80.0%、GPQA Diamond 92.4%、HMMT 99.4% など）や全モデルへのセーフコンプリーション適用、Preparedness FrameworkとEvaluations Hubによる展開前後の継続評価、使用ポリシーの2025年10月29日改訂、gpt‑oss/gpt‑oss‑safeguardの公開とMETR・Irregular・Apollo Researchによる第三者テスト、Aardvarkの提供、企業導入100万社突破やDNPの自動化率87%・処理量10倍といった事例について、どのような情報をどの媒体（システムカード、モデルカード、Evaluations Hub、ポリシー/ブログ、APIドキュメント等）で発信しているのか、具体的に教えてください。"
+  },
+  "phase4_category_mece_usage_07_モデル利用・使い方ガイド": {
+    "vague": "OpenAIはAIの安全性や活用に関してどのような情報を発信しているか、全体像を教えてください。",
+    "experiment": "OpenAIの「モデル利用・使い方ガイド」では、どのような情報を発信していますか？基本姿勢や掲載トピックの全体像を教えてください。",
+    "aligned": "OpenAIの「モデル利用・使い方ガイド」では、Model Spec（CC0公開）や2025年10月29日改訂の使用ポリシーを基盤に、エージェントプラットフォーム（ChatGPT・AgentKit・ChatGPT Atlas・Realtime APIの統合）、SSO/MFAやRBAC、Admin/Audit API、SOC 2/ISO、HIPAA BAAなどのエンタープライズ統制、GPT‑5を含む外部テストとEvaluations Hub、GDPvalやHealthBenchの実務ベンチマーク、不適切応答65～80％削減（センシティブ会話）やSora 2の透かし・C2PA、導入100万社・企業の75％がプラスROI、DNPの自動化率87％・処理量10倍といった事例指標などについて、どのような情報を発信していますか？目的や設計意図、具体的数値・運用手順も含めて詳しく教えてください。"
+  },
+  "phase4_category_mece_usage_08_モデル安全・リスク・ガバナンス": {
+    "vague": "OpenAIはAIの安全性やガバナンス全般について、どのような情報を発信していますか？",
+    "experiment": "OpenAIは「モデル安全・リスク・ガバナンス」について、全体像や基本方針をどのような情報として発信していますか？",
+    "aligned": "OpenAIはモデル安全・リスク・ガバナンスに関して、Model SpecやPreparedness Framework、Evaluations Hubの更新（2025年8月15日のGPT‑5系結果・Production Benchmarks・StrongReject追加）、RLHFへのRBR統合とGPT‑5のセーフコンプリーション、思考の連鎖による推論ベース安全性、o1‑previewの有害プロンプト安全完了率0.995・難例0.934、o3/o4‑miniでのバイオリスク会話検知最大99%、メンタルヘルス領域の不適切応答65〜80%削減、Soraの入出力フィルタや透かし、API/Enterpriseのゼロデータ保持・SOC2/HIPAA対応、gpt‑oss‑safeguardのApache 2.0研究プレビュー提供、ならびに2025年11月のMixpanel事案での即時隔離・通知と影響評価などについて、具体的にどのような情報を発信していますか？"
+  },
+  "phase4_category_mece_usage_09_モデル評価・品質・ベンチマーク": {
+    "vague": "OpenAIは自社のAIシステム全般について、どのような情報を発信していますか？",
+    "experiment": "「モデル評価・品質・ベンチマーク」について、OpenAIはどのような情報を発信していますか？",
+    "aligned": "OpenAIは「モデル評価・品質・ベンチマーク」に関して、Preparedness Frameworkに基づく多層評価や外部独立評価（METRやSecureBio）、Evaluations Hub（2025年8月15日のGPT‑5系・Production Benchmarks更新を含む）やSystem Cardでの公開、Model Spec準拠度の測定、SWE‑bench VerifiedでのGPT‑4oの16%→33.2%改善とスキャフォールド差2.7%〜28.3%の事実、o1‑previewの安全なコンプリーション率0.995（困難ケース0.934）の結果、HealthBench（60か国・262名医師・5,000対話・4万超ルーブリック）での評価、GDPvalによる実務タスク評価、OpenAI Evalsの公開などについて、どのような情報を発信していますか？具体的な公開指標・手法・数値・更新時期と、その意義をどのように説明していますか？"
+  },
+  "phase4_category_mece_usage_10_モデル運用・最適化・標準化": {
+    "vague": "OpenAIがAIの運用・安全・透明性に関してどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIが「モデル運用・最適化・標準化」についてどのような情報を発信しているか、基本方針や全体像を教えてください。",
+    "aligned": "OpenAIがAIオペレーティングモデルとModel Spec（CC0）の公開、挑戦的評価プロンプトやSWE‑bench Verified・HealthBench・GDPvalによる評価、Preparedness Frameworkと第三者評価、RBR×RLHFやSafety Reasoner・リーズニングLLMモニターなどの安全対策、SSO/MFA/SCIM/EKMやAdmin/Audit API、Scale Tierの99.9%稼働率SLA、gpt‑oss/gpt‑oss‑safeguardの提供、センシティブ会話での不適切応答65〜80%削減、o4‑miniのAIME 2025でのpass@1=99.5%（o3=98.4%）やSWE‑bench Verifiedの16%→33.2%改善、DNPやENEOSマテリアルの実運用効果、Business/EnterpriseでのSOC 2 Type 2・ISO準拠（ビジネスデータは学習不使用）といった具体的事実について、どのような情報を発信しているか詳しく教えてください。"
+  },
+  "phase4_category_mece_usage_11_モデル開発・設計・基盤": {
+    "vague": "OpenAIのAI技術・研究と運用全般について、OpenAIはどのような情報を発信していますか？",
+    "experiment": "OpenAIの「モデル開発・設計・基盤」について、全体像や基本方針・特徴に関してOpenAIはどのような情報を発信していますか？",
+    "aligned": "OpenAIはモデル開発・設計・基盤に関して、Model SpecやRLHF+RBR、推論型セーフティ（Safety Reasoner/gpt‑oss‑safeguard）を核にした設計思想、Azure×NVIDIAのクラウドとApache‑2.0のgpt‑oss群による両輪体制、適応的推論と24時間プロンプトキャッシュ、Scale Tier/Priority ProcessingのSLA・レイテンシ設計、gpt‑oss‑120b/20bのMXFP4量子化と主要スタック対応、H100/H200/GB200‑NVL72などの学習基盤について具体的にどのような情報を発信していますか？また、o4‑miniのAIME 2025 pass@1 99.5%（o3は98.4%）、GPT‑5のMMMU 84.2、GPT‑5.2のTau2‑bench(通信) 98.7%、196Kコンテキストやエージェント実行、Preparedness/外部評価/HealthBenchによる多層防御の標準化、センシティブ会話での不適切応答の大幅削減といったベンチマーク・安全運用の実数値について、OpenAIはどのように説明していますか？"
+  },
+  "phase4_category_mece_usage_12_業界別モデル活用・評価（法務・医療・財務）": {
+    "vague": "OpenAIがAIの産業応用と安全性全般について、どのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIが「業界別モデル活用・評価（法務・医療・財務）」についてどのような情報を発信しているか、全体像を教えてください。",
+    "aligned": "OpenAIが法務・医療・財務の高規制領域に関して発信している情報として、Model Spec（CC0公開）やPreparednessに基づく継続評価、RLHFへのルールベース報酬（RBR）統合、HealthBench・GDPval・SWE‑bench Verifiedなどの業界別ベンチマーク、Safety Reasonerやgpt‑oss‑safeguardによる多層防御、GPT‑4の模擬司法試験上位10%、メンタルヘルスでの不適切応答65〜80%削減、GDPvalでのGPT‑4o→GPT‑5の2倍超改善（専門家比約100倍高速・低コスト）、SOC 2 Type 2や医療向けBAA、30日保持・既定非学習化などのデータガバナンス、契約書データエージェントやChatGPT Business/Enterpriseの現場実装について、どのような具体的内容と評価結果・運用方針を発信していますか？"
+  },
+  "phase4_category_mece_strategy_01_AI・データのガバナンス・安全": {
+    "vague": "OpenAIが信頼・安全・プライバシーに関してどのような情報を発信しているか、全体像を教えてください。",
+    "experiment": "「AI・データのガバナンス・安全」について、OpenAIがどのような情報を発信しているか、概要と基本方針の観点から教えてください。",
+    "aligned": "「AI・データのガバナンス・安全」に関して、OpenAIは2025年10月29日の使用ポリシー共通規定化やModel Spec、ルールベース報酬（RBR）の定量結果、不適切応答の65〜80%削減、gpt‑oss‑safeguard（120b/20b）の技術レポート、SoraやGPT‑5系のレッドチーミング結果・システムカード・透かし/C2PA、未成年者保護（年齢予測・CSAMスキャン）、データレジデンシー拡大、EKM/SSO/SCIM/RBAC、SOC 2 Type 2/ISO適合、METR・Apollo・Irregularによる外部評価、DSA透明性レポート、変更ログと異議申立て手続など、どのような情報を発信していますか？具体的な公開ドキュメントの種類、主要な数値・指標、適用範囲、更新頻度や入手先まで含めて教えてください。"
+  },
+  "phase4_category_mece_strategy_02_コーポレートIT・業務デジタル化": {
+    "vague": "OpenAIがビジネス領域におけるAIの活用方針やエンタープライズ支援全般について、どのような情報を発信していますか？",
+    "experiment": "OpenAIが「コーポレートIT・業務デジタル化」について、どのような情報を発信していますか？",
+    "aligned": "OpenAIが「コーポレートIT・業務デジタル化」に関して、SAML SSOやドメイン認証、SCIM・RBAC・EKM、SOC 2 Type 2やISO 27001/27017/27018/27701、Business/Enterpriseにおける学習不使用のデフォルト、gpt‑oss‑safeguard、GPT‑5.2 ThinkingのGDPval最高スコア、DNPでの週次アクティブ率100%・自動化率87%・特許調査時間95%短縮、契約データエージェントやChat with PDFs、インバウンド営業アシスタントの応答精度98%以上とARR創出、Klarna法務での導入率86%、優先処理SLAやライセンス最適化戦略を含めて、どのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_03_コーポレートガバナンス・財務戦略": {
+    "vague": "OpenAIが組織運営や方針全般について、どのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIが「コーポレートガバナンス・財務戦略」について、全体像としてどのような情報を発信しているか教えてください。",
+    "aligned": "OpenAIがコーポレートガバナンス・財務戦略に関して発信している情報を、具体的に教えてください。たとえば、2025年10月28日の資本再構成によるFoundationとOpenAI Group PBCの二層構造や、取締役会体制（議長Bret Taylor、CEO Sam Altman、ミッション＆戦略委員会・安全セキュリティ委員会）に関する説明、使用ポリシーの段階更新（2025/10/29ほか）と高リスク領域の扱い、システムカードやPreparedness、分類器・透かし・C2PAを含む安全スタック、Enterprise/Businessのコンテンツ非学習と99.9%稼働率SLA、SSO・RBAC・SCIM・監査対応などの統制、Priority ProcessingやScale TierによるSLA/レイテンシとコスト最適化、gpt‑oss‑safeguardの研究公開や実運用エージェントによるARR創出の実績といった各トピックについて、どのような内容をどの程度の詳細で公表しているか知りたいです。"
+  },
+  "phase4_category_mece_strategy_04_データ・インフラ戦略・投資": {
+    "vague": "OpenAIは、AIの安全性・ガバナンスや社会実装に関してどのような情報を発信していますか？",
+    "experiment": "OpenAIのデータ・インフラ戦略・投資について、どのような情報を発信していますか？",
+    "aligned": "OpenAIはデータ・インフラ戦略・投資に関して、ChatGPT Enterprise/Business/EduとAPIでの既定の非学習化やゼロデータ保持、暗号化（AES-256/TLS 1.2+）とEKM、SSO/MFA・RBAC・SCIM、欧州データレジデンシー、SOC 2 Type 2およびISO 27001/27017/27018/27701などの認証、Model Specによるモデル行動の明確化、外部独立評価とレッドチーミング（2024年2月以降40件超の悪用ネットワーク遮断）、SLAとサービスクレジット、GPT‑5やマルチモーダル、Agents SDK・Realtime API・Image Generation・Sora 2の提供、さらにJobs PlatformとOpenAI Certificationsで2030年までに1,000万人認定を目指す取り組み、DNPでの導入効果（ユースケース90%実証・週次アクティブ率100%・自動化率87%・ナレッジ再利用70%・処理量10倍）などについて、どのような情報を発信していますか？また、管理コンソールや監査、単一の安全な共同ワークスペースと標準コネクター（DWH/BI/ストリーミング/MCP）による運用ガバナンスの具体像についても教えてください。"
+  },
+  "phase4_category_mece_strategy_05_人材・組織政策": {
+    "vague": "OpenAIは、人とAIの関わりや組織運営を含む全社的な方針・取り組みについて、どのような情報を発信していますか？",
+    "experiment": "OpenAIは「人材・組織政策」について、全体像や基本的な考え方をどのような情報として発信していますか？",
+    "aligned": "OpenAIは人材・組織政策に関して、o3‑mini（2025年1月）の研究・評価・安全性・外部レッドチームが連携する開発体制の公開、SWE‑bench Verified（人手検証500サンプル）やGDPval・外部レッドチーミングによる能力/リスク評価、ChatGPT Enterprise/BusinessのSSO・MFA・RBACやデータ非学習化を備えた安全な統合ワークスペース、さらにエグゼクティブ採用候補者体験設計における収集情報（氏名・連絡先・自己紹介・LinkedIn等）とプライバシー配慮、SMEプロービングやブラインド比較による評価運用、グループチャットやPDF対話の共同作業機能、AI×メンタルヘルス研究助成（最大200万ドル、2025年公募）などについて、具体的にどのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_06_企業のAI導入・活用戦略": {
+    "vague": "OpenAIは、企業のAI活用に関して全体像としてどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIの「企業のAI導入・活用戦略」について、基本姿勢や重点的取り組みの全体像としてどのような情報を発信しているか教えてください。",
+    "aligned": "OpenAIが「企業のAI導入・活用戦略」で発信している具体的な情報として、ヒューマン・イン・ザ・ループ原則、Model Specや使用ポリシー（2025/10/29改訂）、Preparedness Framework（2025/4/15更新）、Enterpriseのセキュリティ/コンプライアンス機能（EKM、ZDR、SSO/MFA、RBAC、SCIM、SOC 2 Type 2、ISO 27001/27017/27018/27701、HIPAA BAA）、センシティブ会話での不適切応答65〜80%削減、o1‑previewの安全完了率0.714→0.934、全入出力へのCSAMチェック、2024年以降の悪用ネットワーク40件超の遮断、DNP・ENEOS等の実証成果、2025/11/9のMixpanel事案への対応などについて、どのような情報を発信しているか詳しく教えてください。"
+  },
+  "phase4_category_mece_strategy_07_品質・信頼性方針": {
+    "vague": "OpenAIは自社の原則や運営体制について、どのような情報を発信していますか？",
+    "experiment": "OpenAIは「品質・信頼性方針」について、どのような情報を発信していますか？",
+    "aligned": "OpenAIは品質・信頼性方針に関して、Model Specに基づくセンシティブ会話の設計指針や「危害マッピング→評価→専門家検証→リスク軽減」の運用、GPT‑5の不適切応答65〜80%削減、METRやApollo Research等の第三者評価の結果と報酬設計、gpt‑oss‑safeguardや熟慮的アライメントによる推論ベース安全設計、RFTを用いた人間レビューの学習ループ、ChatGPT searchの表示透明性と上訴プロセス、企業データの学習不使用・SSO/MFA等の保護、ENEOSマテリアルでの導入成果、透明性レポートや信頼ポータルの提供などについて、どのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_08_外部コミュニケーション・広報戦略": {
+    "vague": "OpenAIは、組織全体として対外的にどのような情報を発信しているのですか？",
+    "experiment": "OpenAIの外部コミュニケーション・広報戦略では、どのような情報を発信しているのですか？",
+    "aligned": "OpenAIは外部コミュニケーション・広報戦略において、Model Spec、ルールベース報酬（RBR）、System Card、Preparedness、信頼・透明性ポータルやDSA対応ページなどを通じて具体的にどのような情報を発信していますか？たとえば、Sora早期アクセスでの50万件超のフィードバックやC2PA/透かし運用、センシティブな会話での不適切応答65〜80％削減、企業データの学習不使用、Temporary Chatの最大30日保持（学習不使用）やSSO/MFA対応など、どの数値・方針・運用事実を一次情報として公開しているのか教えてください。"
+  },
+  "phase4_category_mece_strategy_09_市場・GTM・営業戦略": {
+    "vague": "OpenAIはビジネス戦略や市場展開全般についてどのような情報を発信していますか？",
+    "experiment": "OpenAIは「市場・GTM・営業戦略」についてどのような情報を発信していますか？基本姿勢や製品構成、セキュリティ方針、導入モデルの全体像を教えてください。",
+    "aligned": "OpenAIは「市場・GTM・営業戦略」に関して、ChatGPT TeamのChatGPT Businessへの改称（2025年8月29日）とBusiness/Enterpriseの二層モーション、世界で500万人超のビジネスユーザー採用、エージェントのMCP/コネクターによるCRM・広告・財務・開発ツール連携、企業データのモデル学習非利用とAES‑256・TLS・SAML SSO・SOC 2等の統制、インド向けIndQA（12言語・2,278問・261名・2025年11月3日公開）、実績（エスティ ローダーの応答時間90％超短縮、Genmabの従業員1人あたり週3.5時間削減、DNPの週次アクティブ率100％・自動化率87％・処理量10倍）、インバウンド営業アシスタントの精度改善（約60％→98％超）とARR貢献、さらにEnterpriseのSCIMやEnterprise Compliance APIなどの管理機能について、どのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_10_提携・アライアンス戦略": {
+    "vague": "OpenAIが協力志向や安全性、エコシステム連携に関してどのような情報を発信しているか教えてください。",
+    "experiment": "OpenAIの提携・アライアンス戦略について、OpenAIがどのような情報を発信しているか教えてください。",
+    "aligned": "OpenAIは提携・アライアンス戦略に関して、ChatGPT Business/Enterpriseを核にしたJira・Slack・Google Ads・HubSpot・Googleドライブ・Dropboxなどのコネクター、SSO/MFA・SCIM・RBAC・鍵管理を備えた統合ワークスペース、API優先処理とSLA、GPT‑5を含む外部評価（独立評価・方法論レビュー・SMEプロービング）、2025年のOpenAI Foundation主導の新ガバナンス、バグバウンティ（200〜20,000ドル）、Databricks統合や韓国の「Stargate」パートナーシップ、DNPでの導入成果（週次アクティブ率100％・自動化87％・ナレッジ再利用70％・処理量10倍）、Enterpriseでの学習不使用やSOC 2/ISO 27001/27017/27018/27701、Enterprise Compliance APIなどについて、どのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_11_教育ICT・学習戦略": {
+    "vague": "OpenAIは、AIの設計原則・安全性・透明性を含む学びと社会実装に関して、どのような情報を発信していますか？",
+    "experiment": "OpenAIは「教育ICT・学習戦略」について、全体像や基本方針をどのような情報として発信していますか？",
+    "aligned": "OpenAIは、教育ICT・学習戦略に関して、Model Spec（CC0）やPreparedness Framework、学習モード／ChatGPT for Teachers（米国K–12向け2027年6月まで無償）／ChatGPT Edu、SSO・MFA・RBACの運用ガバナンス、o1/o3/o4‑miniやGPT‑5/5.2の推論・マルチモーダル強化、gpt‑oss‑safeguardの公開、Soraの段階提供とC2PA対応、2025年9月のペアレンタルコントロール導入、さらにDNP（週次アクティブ率100％・自動化率87％・処理量10倍）やENEOSマテリアル（数カ月の調査→数分、研修報告分析1〜2時間→約20秒）の実装効果、安全なコンプリーション0.995（o1‑preview）やセンシティブ会話での不適切応答65〜80％削減（GPT‑5）などの数値指標について、どのような情報を発信していますか？"
+  },
+  "phase4_category_mece_strategy_12_研究開発・知財戦略": {
+    "vague": "OpenAIは、技術や安全性、協力姿勢に関してどのような情報を発信していますか？",
+    "experiment": "OpenAIは「研究開発・知財戦略」についてどのような情報を発信していますか？基本方針や重点領域の全体像を教えてください。",
+    "aligned": "OpenAIは、Model SpecのCC0公開と準拠評価、GPT‑5への外部評価枠組み（独立評価・方法論レビュー・SMEプロービング）の適用、o3‑mini（2025年1月）や画像で“思考”するo3/o4‑mini（2025年4月）、Sora 2の安全な限定展開、Kubernetes 7,500ノード拡張、規約違反40以上のネットワーク遮断・報告、そして利用規約による知財保護（出力の競合モデル開発目的での利用禁止等）や企業向けChatGPT Businessのセキュリティ設計に関して、具体的にどのような情報を発信していますか？それぞれの発信内容の詳細と目的を教えてください。"
+  },
+  "phase4_category_mece_strategy_13_顧客支援・価値向上戦略": {
+    "vague": "OpenAIは、顧客価値創出や事業運営の在り方について、どのような情報を発信していますか？",
+    "experiment": "OpenAIの「顧客支援・価値向上戦略」について、全体像や基本方針に関してどのような情報を発信していますか？",
+    "aligned": "OpenAIは顧客支援・価値向上戦略に関して、Agents SDK・Responses API・Realtime APIによる学習ループ、Business/Enterpriseでの「データは学習に使用しない」方針、Enterpriseの拡張サポートやグローバル管理コンソール・コネクターレジストリ・ブランド対応ワークスペース、2025年10月の使用ポリシー改訂とModel Specの公開・継続更新、Businessの年次契約$25/ユーザー/月、DNPの調査時間95%短縮・処理10倍や週次アクティブ100%・自動化率87%、インバウンド営業アシスタントの精度60%→98%以上といったKPIについて、どのような情報を発信していますか？具体的な内容とその狙いを教えてください。"
+  }
+}

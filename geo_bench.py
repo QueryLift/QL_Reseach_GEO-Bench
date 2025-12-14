@@ -425,12 +425,12 @@ class WebContentFetcher:
 
             except TimeoutException:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
+                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES}): {final_url}")
                     continue
                 raise Exception(f"ページ読み込みタイムアウト ({self.PAGE_LOAD_TIMEOUT}秒)")
             except WebDriverException as e:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url} - {e}")
+                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {final_url} - {e}")
                     continue
                 raise Exception(f"Seleniumエラー: {e}")
             finally:
@@ -580,6 +580,20 @@ class WebContentFetcher:
 # Utility Functions
 # =============================================================================
 
+def _citation_to_letter(match: re.Match) -> str:
+    """[1] → [[a]], [2] → [[b]] などに変換"""
+    num = int(match.group(1))
+    if num < 1:
+        return match.group(0)  # 0以下はそのまま
+    # 1→a, 2→b, ..., 26→z, 27→aa, 28→ab, ...
+    result = ""
+    while num > 0:
+        num -= 1
+        result = chr(ord('a') + (num % 26)) + result
+        num //= 26
+    return f"[[{result}]]"
+
+
 def strip_markdown(content: str) -> str:
     """
     Markdownテキストをプレーンテキストに変換
@@ -590,6 +604,8 @@ def strip_markdown(content: str) -> str:
     Returns:
         プレーンテキスト
     """
+    # 引用番号 [1], [2] などを [[a]], [[b]] に変換（Search Results:の番号との混同を防ぐ）
+    content = re.sub(r'\[(\d+)\]', _citation_to_letter, content)
     # 見出し（# ## ### など）の記号のみ除去（改行は保持）
     content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE)
     # 太字・斜体（** __ * _）を除去

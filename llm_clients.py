@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import re
 import time
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ from typing import Any
 import anthropic
 import openai
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 
@@ -28,7 +30,7 @@ class LLMClient(ABC):
 
     def __init__(self):
         # レートリミット設定
-        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "0.8"))
+        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "3.3"))
         print("rate_limit_interval: ", self.rate_limit_interval)
         self._rate_limit_lock = asyncio.Lock()
         self._last_call_time = 0.0
@@ -104,7 +106,7 @@ class GPTClient(LLMClient):
         response = await self.async_client.responses.create(
             model=self.MODEL,
             tools=[{"type": "web_search"}],
-            input=f"Search for: {query}",
+            input=query,
         )
 
         # output_text からURLを抽出
@@ -164,7 +166,7 @@ class ClaudeClient(LLMClient):
         response = await self.async_client.messages.create(
             model=self.MODEL,
             max_tokens=20000,
-            messages=[{"role": "user", "content": f"Search for: {query}"}],
+            messages=[{"role": "user", "content": query}],
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search",
@@ -212,7 +214,8 @@ class ClaudeClient(LLMClient):
 class GeminiClient(LLMClient):
     """Google Gemini クライアント（検索グラウンディング使用）"""
 
-    MODEL = "gemini-2.5-flash"
+    MODEL = "gemini-2.5-pro"
+    MAX_RETRIES = 5  # 429エラー時の最大リトライ回数
 
     def __init__(self):
         super().__init__()
@@ -225,23 +228,40 @@ class GeminiClient(LLMClient):
     def name(self) -> str:
         return f"Gemini ({self.MODEL})"
 
+    async def _retry_on_429(self, func, *args, **kwargs):
+        """429エラー時に10秒+ランダム秒待ってリトライ"""
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                return await func(*args, **kwargs)
+            except genai_errors.ClientError as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    wait_time = 20 + random.randint(0, 60) # 20秒から50秒の間でランダム待機
+                    print(f"[Gemini] 429 RESOURCE_EXHAUSTED - {wait_time}秒待機後リトライ ({attempt + 1}/{self.MAX_RETRIES})")
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise
+        raise RuntimeError(f"Gemini API: {self.MAX_RETRIES}回リトライしましたが失敗しました")
+
     async def acall_standard(self, prompt: str) -> str:
         """非同期で Gemini を呼び出し（グラウンディングなし）"""
         await self._wait_for_rate_limit()
 
-        # google-genai は同期APIのため、スレッドプールで実行
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: self.client.models.generate_content(
-                model=self.MODEL,
-                contents=prompt,
+        async def _call():
+            # google-genai は同期APIのため、スレッドプールで実行
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.models.generate_content(
+                    model=self.MODEL,
+                    contents=prompt,
+                )
             )
-        )
-        text = response.text.strip() if response.text else ""
-        if not text:
-            raise RuntimeError("LLM からのレスポンスにテキストが含まれていません")
-        return text
+            text = response.text.strip() if response.text else ""
+            if not text:
+                raise RuntimeError("LLM からのレスポンスにテキストが含まれていません")
+            return text
+
+        return await self._retry_on_429(_call)
 
     async def search_web(self, query: str, max_results: int = 5) -> list[dict]:
         """Google検索グラウンディングを使用してソースURLを取得"""
@@ -250,16 +270,20 @@ class GeminiClient(LLMClient):
         grounding_tool = types.Tool(google_search=types.GoogleSearch())
         config = types.GenerateContentConfig(tools=[grounding_tool])
 
-        # google-genai は同期APIのため、スレッドプールで実行
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: self.client.models.generate_content(
-                model=self.MODEL,
-                contents=f"Search for: {query}",
-                config=config,
+        async def _call():
+            # google-genai は同期APIのため、スレッドプールで実行
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.models.generate_content(
+                    model=self.MODEL,
+                    contents=query,
+                    config=config,
+                )
             )
-        )
+            return response
+
+        response = await self._retry_on_429(_call)
 
         # groundingMetadata からURLを抽出
         results = []
