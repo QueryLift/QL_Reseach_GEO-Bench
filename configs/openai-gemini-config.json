@@ -1,0 +1,13 @@
+{
+  "providers": ["gemini"],
+  "num_runs": 2,
+  "max_sources": 5,
+  "targets_dir": "openai_targets",
+  "output_dir": "outputs",
+  "questions_cache_file": "openai-questions.json",
+  "primary_domains": [
+    "openai.com",
+    "chatgpt.com"
+  ],
+  "prompt_type": "openai"
+}

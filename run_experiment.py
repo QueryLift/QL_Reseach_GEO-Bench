@@ -70,38 +70,41 @@ from file_output import (
 # Configuration
 # =============================================================================
 
-# 実験設定
-# EXPERIMENT_CONFIG = {
-#     "providers": ["gpt"],                # 使用するプロバイダー
-#     "num_runs": 2,                        # 各ターゲットの繰り返し回数
-#     "max_sources": 5,                     # Web検索で取得するソース数
-#     "targets_dir": "openai_targets",             # ターゲットファイルのディレクトリ
-#     "output_dir": "outputs",              # 出力ディレクトリ
-#     "questions_cache_file": "openai-questions.json",  # 質問キャッシュファイル
-#     # 一次情報源と判定するドメイン（部分一致）
-#     "primary_domains": [
-#         "openai.com",
-#         "chatgpt.com"
-#     ],
-#     # 質問生成プロンプトタイプ: "openai" or "jimin"
-#     "prompt_type": "openai",
-# }
 
+def load_config(config_path: str) -> dict:
+    """
+    設定ファイルを読み込む
 
-EXPERIMENT_CONFIG = {
-    "providers": ["gemini"],                # 使用するプロバイダー
-    "num_runs": 2,                        # 各ターゲットの繰り返し回数
-    "max_sources": 5,                     # Web検索で取得するソース数
-    "targets_dir": "jimin_targets",             # ターゲットファイルのディレクトリ
-    "output_dir": "outputs",              # 出力ディレクトリ
-    "questions_cache_file": "jimin-questions.json",  # 質問キャッシュファイル
-    # 一次情報源と判定するドメイン（部分一致）
-    "primary_domains": [
-        "jimin.jp"
-    ],
-    # 質問生成プロンプトタイプ: "openai" or "jimin"
-    "prompt_type": "jimin",
-}
+    Args:
+        config_path: 設定ファイルのパス
+
+    Returns:
+        dict: 設定辞書
+    """
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"設定ファイルが見つかりません: {config_path}")
+
+    with open(path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    # 必須フィールドの検証
+    required_fields = [
+        "providers",
+        "num_runs",
+        "max_sources",
+        "targets_dir",
+        "output_dir",
+        "questions_cache_file",
+        "primary_domains",
+        "prompt_type",
+    ]
+    for field in required_fields:
+        if field not in config:
+            raise ValueError(f"設定ファイルに必須フィールドがありません: {field}")
+
+    return config
+
 
 # プロンプトタイプのマッピング
 PROMPT_TYPES = {
@@ -1450,6 +1453,12 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
+        "-c", "--config",
+        type=str,
+        required=True,
+        help="設定ファイルのパス（必須）",
+    )
+    parser.add_argument(
         "-q", "--generate-questions-only",
         action="store_true",
         help="質問生成のみを実行（実験は実行しない）",
@@ -1471,7 +1480,10 @@ def parse_args() -> argparse.Namespace:
 async def main():
     """メイン関数"""
     args = parse_args()
-    config = EXPERIMENT_CONFIG
+
+    # 設定ファイルを読み込む
+    print(f"設定ファイル: {args.config}")
+    config = load_config(args.config)
 
     # ドメインを自動検出
     target_domains = get_target_domains(config["targets_dir"])

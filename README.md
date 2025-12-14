@@ -60,23 +60,40 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 
 ## 設定
 
-`config.json` を作成：
+設定ファイル（JSON）を作成します。`configs/` フォルダに以下のサンプルが用意されています：
+
+| ファイル | ターゲット | プロバイダー |
+|----------|-----------|-------------|
+| `configs/openai-gpt-config.json` | OpenAI | GPT |
+| `configs/openai-gemini-config.json` | OpenAI | Gemini |
+| `configs/jimin-gpt-config.json` | Jimin | GPT |
+| `configs/jimin-gemini-config.json` | Jimin | Gemini |
 
 ```json
 {
-  "question": "質問文",
-  "provider": "gpt",
-  "targets": [
-    {
-      "id": "target_1",
-      "file": "target1.md",
-      "url": "https://example.com/page1"
-    }
-  ],
+  "providers": ["gemini"],
+  "num_runs": 2,
+  "max_sources": 5,
+  "targets_dir": "jimin_targets",
   "output_dir": "outputs",
-  "max_sources": 5
+  "questions_cache_file": "jimin-questions.json",
+  "primary_domains": ["jimin.jp"],
+  "prompt_type": "jimin"
 }
 ```
+
+### 設定項目（すべて必須）
+
+| 項目 | 説明 |
+|------|------|
+| `providers` | 使用するプロバイダーのリスト |
+| `num_runs` | 各ターゲットの繰り返し回数 |
+| `max_sources` | Web検索で取得するソース数 |
+| `targets_dir` | ターゲットファイルのディレクトリ |
+| `output_dir` | 出力ディレクトリ |
+| `questions_cache_file` | 質問キャッシュファイル |
+| `primary_domains` | 一次情報源と判定するドメイン |
+| `prompt_type` | 質問生成プロンプトタイプ（`"openai"` or `"jimin"`） |
 
 ### プロバイダー
 
@@ -89,25 +106,32 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 ## 実行
 
 ```bash
-# 基本実行（出力フォルダ名はタイムスタンプ）
-python run_experiment.py
+# Jimin × Gemini で実行
+python run_experiment.py -c configs/jimin-gemini-config.json
+
+# Jimin × GPT で実行
+python run_experiment.py -c configs/jimin-gpt-config.json
+
+# OpenAI × Gemini で実行
+python run_experiment.py -c configs/openai-gemini-config.json
 
 # 出力フォルダ名を指定
-python run_experiment.py -o my_experiment
+python run_experiment.py -c configs/jimin-gemini-config.json -o my_experiment
 
 # 質問生成のみ（実験は実行しない）
-python run_experiment.py --generate-only
+python run_experiment.py -c configs/jimin-gemini-config.json -q
 
 # 生成された質問を表示
-python run_experiment.py --show-questions
+python run_experiment.py -c configs/jimin-gemini-config.json --show-questions
 ```
 
 ### コマンドライン引数
 
 | 引数 | 説明 |
 |------|------|
+| `-c, --config` | 設定ファイルのパス（必須） |
 | `-o, --output-name` | 出力フォルダ名（省略時はタイムスタンプ `YYYYMMDD_HHMMSS`） |
-| `--generate-only` | 質問生成のみを実行（実験は実行しない） |
+| `-q, --generate-questions-only` | 質問生成のみを実行（実験は実行しない） |
 | `--show-questions` | 生成された質問を表示 |
 
 ## 処理フロー

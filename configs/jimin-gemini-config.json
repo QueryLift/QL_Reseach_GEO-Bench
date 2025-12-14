@@ -1,0 +1,12 @@
+{
+  "providers": ["gemini"],
+  "num_runs": 2,
+  "max_sources": 5,
+  "targets_dir": "jimin_targets",
+  "output_dir": "outputs",
+  "questions_cache_file": "jimin-questions.json",
+  "primary_domains": [
+    "jimin.jp"
+  ],
+  "prompt_type": "jimin"
+}

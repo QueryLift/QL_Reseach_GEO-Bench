@@ -218,8 +218,8 @@ class ClaudeClient(LLMClient):
 class GeminiClient(LLMClient):
     """Google Gemini クライアント（検索グラウンディング使用）"""
 
-    # MODEL = "gemini-2.5-pro"
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-2.5-flash"
+    # MODEL = "gemini-2.0-flash"
     MAX_RETRIES = 5  # 429エラー時の最大リトライ回数
 
     def __init__(self):
