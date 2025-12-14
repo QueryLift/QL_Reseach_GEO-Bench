@@ -15,6 +15,7 @@ GEO-bench 実験スクリプト
 
 import argparse
 import asyncio
+import random
 import re
 import shutil
 import statistics
@@ -71,7 +72,7 @@ from file_output import (
 
 # 実験設定
 EXPERIMENT_CONFIG = {
-    "providers": ["gemini"],                # 使用するプロバイダー
+    "providers": ["gpt"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
     "targets_dir": "jimin_targets",             # ターゲットファイルのディレクトリ
@@ -615,22 +616,38 @@ class ExperimentRunner:
             target_dir.mkdir(exist_ok=True)
 
             # 1. 質問タイプごとにWeb検索
-            print(f"  [{provider}][{question_type}][{target_title}] Web検索開始")
+            print(f"  [{provider}][{question_type}][{target_title}] Web検索開始 (ターゲットコンテンツ文字数: {len(target_content)})")
             source_urls = await self._search_web(llm, question)
 
             # 2. ソースを取得
             sources = await self._fetch_sources(source_urls)
 
-            # 3. ターゲットを追加したソースリストを作成
+            # 3. ターゲットをランダムな位置に挿入したソースリストを作成
+            # GEO論文に従い、ターゲットの位置バイアスを避けるためランダム挿入
             sources_with_targets = sources.copy()
-            sources_with_targets.append(target_source)
-            target_index = len(sources_with_targets)  # 1-indexed
+            insert_pos = random.randint(0, len(sources_with_targets))
+            sources_with_targets.insert(insert_pos, target_source)
+            target_index = insert_pos + 1  # 1-indexed
 
             # ソースを保存
             save_sources(target_dir, sources)
 
+            # GEOプロンプトを保存（デバッグ・検証用）
+            prompt_without = PROMPT_TEMPLATE.format(
+                question=question,
+                sources=format_sources(sources)
+            )
+            prompt_with = PROMPT_TEMPLATE.format(
+                question=question,
+                sources=format_sources(sources_with_targets)
+            )
+            with open(target_dir / "prompt_without.txt", "w", encoding="utf-8") as f:
+                f.write(prompt_without)
+            with open(target_dir / "prompt_with.txt", "w", encoding="utf-8") as f:
+                f.write(prompt_with)
+
             # 回答生成をN回並列で実行
-            print(f"  [{provider}][{question_type}][{target_title}] 回答生成 {self.num_runs}回を並列実行中...")
+            print(f"  [{provider}][{question_type}][{target_title}] 回答生成始めます")
 
             # 全run分のwithout/with回答を一括で並列生成
             answer_tasks = []
@@ -809,6 +826,7 @@ class ExperimentRunner:
         """
         sources_text = format_sources(sources)
         prompt = PROMPT_TEMPLATE.format(question=question, sources=sources_text)
+        print("GE-bench 実行中: プロンプトサイズ =", len(prompt))
         return await llm.acall_standard(prompt)
 
     def _aggregate_target(

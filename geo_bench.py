@@ -18,6 +18,7 @@ import atexit
 import glob
 import io
 import os
+import random
 import re
 import shutil
 import signal
@@ -27,6 +28,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import TypedDict
+from urllib.parse import urlparse
 
 import httpx
 import pdfplumber
@@ -286,9 +288,9 @@ class WebContentFetcher:
     PAGE_LOAD_TIMEOUT = 30  # ページ読み込みタイムアウト（秒）
     IMPLICIT_WAIT = 10  # 暗黙的待機（秒）
     WAIT_TIME = 2  # 動的コンテンツ読み込み待機（秒）
-    SLEEP_TIME = 60  # レートリミット時の待機（秒）
-    MAX_RETRIES = 3  # 最大リトライ回数
-    MAX_CONTENT_LENGTH = 10000  # 最大文字数
+    SLEEP_TIME = 30  # レートリミット時の待機（秒）
+    MAX_RETRIES = 6  # 最大リトライ回数
+    MAX_CONTENT_LENGTH = 8000  # 最大文字数
 
     # リアルなブラウザヘッダー（URL非依存）
     BROWSER_HEADERS = {
@@ -312,9 +314,16 @@ class WebContentFetcher:
     # 並列フェッチ数
     MAX_WORKERS = 20
 
+    # 同一ドメインへのアクセス間隔（秒）
+    DOMAIN_RATE_LIMIT_INTERVAL = float(os.getenv("WEB_RATE_LIMIT_INTERVAL", "0.3"))
+
     def __init__(self):
         self._http_client: httpx.AsyncClient | None = None
         self._executor = ThreadPoolExecutor(max_workers=self.MAX_WORKERS)
+        # ドメインごとのレートリミット管理
+        self._domain_locks: dict[str, asyncio.Lock] = {}
+        self._domain_last_access: dict[str, float] = {}
+        self._global_lock = asyncio.Lock()  # ドメインロック取得用
 
     def _create_driver(self) -> webdriver.Chrome:
         """
@@ -403,7 +412,7 @@ class WebContentFetcher:
                 # レートリミットされている場合はリトライ
                 if "just a moment" in title_text or "satisfied" in title_text:
                     print(f"[Web] レートリミット検出、{self.SLEEP_TIME}秒待機してリトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
-                    time.sleep(self.SLEEP_TIME)
+                    time.sleep(self.SLEEP_TIME + random.randint(1, 60))
                     continue
 
                 # 最終URL（リダイレクト後）
@@ -437,6 +446,31 @@ class WebContentFetcher:
         # リトライ回数超過
         raise Exception(f"最大リトライ回数 ({self.MAX_RETRIES}) を超過")
 
+    def _extract_domain(self, url: str) -> str:
+        """URLからドメインを抽出"""
+        try:
+            parsed = urlparse(url)
+            return parsed.netloc.lower()
+        except Exception:
+            return "unknown"
+
+    async def _wait_for_domain_rate_limit(self, domain: str) -> None:
+        """ドメインごとのレートリミットを待機"""
+        # ドメイン用のロックを取得（なければ作成）
+        async with self._global_lock:
+            if domain not in self._domain_locks:
+                self._domain_locks[domain] = asyncio.Lock()
+            domain_lock = self._domain_locks[domain]
+
+        # ドメインごとにレートリミットを適用
+        async with domain_lock:
+            now = time.time()
+            last_access = self._domain_last_access.get(domain, 0.0)
+            wait_time = self.DOMAIN_RATE_LIMIT_INTERVAL - (now - last_access)
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+            self._domain_last_access[domain] = time.time()
+
     async def fetch(self, url: str) -> tuple[str, str, str]:
         """
         URLからテキストコンテンツを取得
@@ -444,6 +478,10 @@ class WebContentFetcher:
         Returns:
             (content, media_type, final_url): コンテンツ、メディアタイプ、リダイレクト後の最終URL
         """
+        # ドメインごとのレートリミット
+        domain = self._extract_domain(url)
+        await self._wait_for_domain_rate_limit(domain)
+
         try:
             # PDFの場合はhttpxで直接取得
             if self._is_pdf_url(url):

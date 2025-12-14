@@ -28,7 +28,8 @@ class LLMClient(ABC):
 
     def __init__(self):
         # レートリミット設定
-        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "0.5"))
+        self.rate_limit_interval = float(os.getenv("LLM_RATE_LIMIT_INTERVAL", "0.8"))
+        print("rate_limit_interval: ", self.rate_limit_interval)
         self._rate_limit_lock = asyncio.Lock()
         self._last_call_time = 0.0
 
