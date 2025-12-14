@@ -68,7 +68,7 @@ from file_output import (
 
 # 実験設定
 EXPERIMENT_CONFIG = {
-    "providers": ["gemini"],                # 使用するプロバイダー
+    "providers": ["gpt"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
     "targets_dir": "targets",             # ターゲットファイルのディレクトリ
