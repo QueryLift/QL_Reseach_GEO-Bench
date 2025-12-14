@@ -49,7 +49,7 @@ QUESTION_TYPES = ["vague", "experiment", "aligned"]
 EXPERIMENT_CONFIG = {
     # "providers": ["gemini", "gpt"],  # 使用するプロバイダー
     "providers": ["gpt"],  # 使用するプロバイダー
-    "num_runs": 5,                   # 各ターゲットの繰り返し回数
+    "num_runs": 2,                   # 各ターゲットの繰り返し回数
     "max_sources": 5,                # Web検索で取得するソース数
     "targets_dir": "targets",        # ターゲットファイルのディレクトリ
     "output_dir": "outputs",         # 出力ディレクトリ
@@ -70,24 +70,32 @@ QUESTION_GENERATION_PROMPT = """あなたは政策に関する質問を生成す
 
 【生成する質問の種類】
 
-1. vague（抽象的な質問）:
-ターゲットのタイトルを一段抽象化したカテゴリーについて、総合的に知りたいという質問。
-例: タイトルが「物価・インフレ対策」なら「自民党の経済政策の柱になっているものを総合的に知りたいです。」
+1. vague（最も抽象的な質問）:
+ターゲットのタイトルを「二段階」抽象化した、広いカテゴリーについて総合的に知りたいという質問。
+具体的なテーマ名は出さず、上位概念で聞く。
+例:
+- タイトル「物価・インフレ対策」→「自民党の経済政策について教えてください。」
+- タイトル「デジタル経済・データ・Web3」→「自民党のITやデジタル政策について教えてください。」
+- タイトル「農業・農村政策」→「自民党の第一次産業に関する政策について教えてください。」
 
 2. experiment（中間的な質問）:
-ターゲットのタイトルを一段抽象化した形の質問。タイトルの具体的なテーマについて聞く。
-例: タイトルが「物価・インフレ対策」なら「自民党の物価上昇についてどう考えていますか？」
+ターゲットのタイトルのテーマについて、全体像や基本方針を聞く質問。
+タイトルのテーマ名は使うが、記事の詳細には踏み込まない。
+例:
+- タイトル「物価・インフレ対策」→「自民党の物価・インフレ対策の基本方針を教えてください。」
+- タイトル「デジタル経済・データ・Web3」→「自民党のデジタル経済・データ政策の全体像と基本方針を知りたいです。」
 
-3. aligned（具体的な質問）:
-ターゲットの記事内容に完全に沿った、具体的で詳細な質問。記事の核心的な内容について深く聞く。
+3. aligned（最も具体的な質問）:
+ターゲットの記事内容に完全に沿った、具体的で詳細な質問。
+記事に登場する具体的な施策、数値目標、固有名詞などを含めて深く聞く。
 例: 「自民党は物価・インフレ対策や賃上げ・雇用・労働市場の政策で、物価上昇に負けない賃金アップを全国に広げるため、どのような仕組みを企業や労働者と一緒につくろうとしているのですか。」
 
 【出力形式】
 以下のJSON形式で出力してください。余計な説明は不要です。
 {{
-  "vague": "抽象的な質問文",
+  "vague": "最も抽象的な質問文",
   "experiment": "中間的な質問文",
-  "aligned": "具体的な質問文"
+  "aligned": "最も具体的な質問文"
 }}"""
 
 # GEO論文のプロンプトテンプレート
@@ -647,7 +655,7 @@ class ExperimentRunner:
 
                 llm = self._get_llm(provider)
 
-                # 全ターゲット×全質問タイプを並列で実行
+                # 全ターゲットを並列で実行（各ターゲット内で全質問タイプを処理）
                 target_tasks = []
                 for target in domain_targets:
                     target_questions = questions.get(target["id"])
@@ -655,20 +663,19 @@ class ExperimentRunner:
                         print(f"警告: ターゲット {target['id']} の質問が見つかりません")
                         continue
 
-                    for q_type in QUESTION_TYPES:
-                        question = target_questions[q_type]
-                        target_tasks.append(
-                            self._run_target_experiment(
-                                llm=llm,
-                                provider=provider,
-                                target=target,
-                                question=question,
-                                question_type=q_type,
-                                output_dir=domain_dir,
-                            )
+                    target_tasks.append(
+                        self._run_target_all_questions(
+                            llm=llm,
+                            provider=provider,
+                            target=target,
+                            target_questions=target_questions,
+                            output_dir=domain_dir,
                         )
+                    )
 
-                all_target_summaries = await asyncio.gather(*target_tasks)
+                # 各タスクはlist[TargetSummary]を返すので、フラットにする
+                nested_summaries = await asyncio.gather(*target_tasks)
+                all_target_summaries = [s for summaries in nested_summaries for s in summaries]
 
                 # ドメイン集計（質問タイプ別に自動分類）
                 domain_summary = self._aggregate_domain(
@@ -690,33 +697,31 @@ class ExperimentRunner:
         print(f"\n完了: {output_dir}")
         return output_dir
 
-    async def _run_target_experiment(
+    async def _run_target_all_questions(
         self,
         llm: LLMClient,
         provider: str,
         target: TargetConfig,
-        question: str,
-        question_type: str,
+        target_questions: GeneratedQuestions,
         output_dir: Path,
-    ) -> TargetSummary:
-        """1ターゲット×1質問タイプの実験を実行"""
+    ) -> list[TargetSummary]:
+        """
+        1ターゲットの全質問タイプを同じソースで実験
+
+        ポイント:
+        - Web検索は1回のみ（experiment質問で検索）
+        - 同じソースを全質問タイプで使い回す
+        - 質問の違いによる効果のみを測定
+        """
         target_title = target['title']
-        folder_name = f"{provider}_{question_type}_{sanitize_folder_name(target_title)}"
-        target_dir = output_dir / folder_name
-        target_dir.mkdir(exist_ok=True)
 
-        # 1. Web検索（1回のみ）
-        print(f"  [{provider}][{question_type}][{target_title}] Web検索開始")
-        source_urls = await self._search_web(llm, question)
+        # 1. Web検索（experiment質問で1回のみ）
+        search_query = target_questions["experiment"]
+        print(f"  [{provider}][{target_title}] Web検索開始（全質問タイプ共通）")
+        source_urls = await self._search_web(llm, search_query)
 
-        # 2. ソースを取得
+        # 2. ソースを取得（1回のみ）
         sources = await self._fetch_sources(source_urls)
-
-        # ソースを保存
-        self._save_json(target_dir / "sources.json", [
-            {"index": i + 1, "url": s["url"], "content": s["content"], "media_type": s["media_type"]}
-            for i, s in enumerate(sources)
-        ])
 
         # 3. ターゲットコンテンツを準備
         target_content = load_target_file(target["file"])
@@ -731,92 +736,105 @@ class ExperimentRunner:
         sources_with_targets.append(target_source)
         target_index = len(sources_with_targets)  # 1-indexed
 
-        # 4. 回答生成をN回並列で実行
-        print(f"  [{provider}][{question_type}][{target_title}] 回答生成 {self.num_runs}回を並列実行中...")
+        # 4. 各質問タイプごとに回答生成（同じソースを使用）
+        all_summaries: list[TargetSummary] = []
 
-        # 全run分のwithout/with回答を一括で並列生成
-        # タスクリスト: [without_1, with_1, without_2, with_2, ...]
-        answer_tasks = []
-        for _ in range(self.num_runs):
-            answer_tasks.append(self._generate_answer(llm, question, sources))
-            answer_tasks.append(self._generate_answer(llm, question, sources_with_targets))
+        for question_type in QUESTION_TYPES:
+            question = target_questions[question_type]
+            folder_name = f"{provider}_{question_type}_{sanitize_folder_name(target_title)}"
+            target_dir = output_dir / folder_name
+            target_dir.mkdir(exist_ok=True)
 
-        all_answers = await asyncio.gather(*answer_tasks)
+            # ソースを保存（質問タイプごとに同じ内容だが記録）
+            self._save_json(target_dir / "sources.json", [
+                {"index": i + 1, "url": s["url"], "content": s["content"], "media_type": s["media_type"]}
+                for i, s in enumerate(sources)
+            ])
 
-        # 結果を処理
-        run_results: list[RunResult] = []
-        for run_idx in range(1, self.num_runs + 1):
-            # all_answers: [without_1, with_1, without_2, with_2, ...]
-            answer_without = all_answers[(run_idx - 1) * 2]
-            answer_with = all_answers[(run_idx - 1) * 2 + 1]
+            # 回答生成をN回並列で実行
+            print(f"  [{provider}][{question_type}][{target_title}] 回答生成 {self.num_runs}回を並列実行中...")
 
-            # メトリクス計算
-            metrics_without = self.analyzer.analyze(answer_without, sources)
-            metrics_with = self.analyzer.analyze(answer_with, sources_with_targets)
+            # 全run分のwithout/with回答を一括で並列生成
+            answer_tasks = []
+            for _ in range(self.num_runs):
+                answer_tasks.append(self._generate_answer(llm, question, sources))
+                answer_tasks.append(self._generate_answer(llm, question, sources_with_targets))
 
-            # ターゲットの引用情報
-            target_metrics = metrics_with.get(target_index)
-            target_cited = target_metrics is not None
-            target_imp_wc = target_metrics.imp_wc if target_metrics else 0.0
-            target_imp_pwc = target_metrics.imp_pwc if target_metrics else 0.0
+            all_answers = await asyncio.gather(*answer_tasks)
 
-            # 一次情報源の引用率を計算
-            # without: 全ソースを対象
-            primary_rate_without = calc_primary_source_rate(
-                metrics_without, sources, self.primary_domains
-            )
-            # with: ターゲットを除外して計算
-            primary_rate_with = calc_primary_source_rate(
-                metrics_with, sources, self.primary_domains
-            )
-            primary_rate_diff = primary_rate_with - primary_rate_without
+            # 結果を処理
+            run_results: list[RunResult] = []
+            for run_idx in range(1, self.num_runs + 1):
+                answer_without = all_answers[(run_idx - 1) * 2]
+                answer_with = all_answers[(run_idx - 1) * 2 + 1]
 
-            # ソース別スコアを計算
-            source_scores_without = calc_source_scores(
-                metrics_without, sources, self.primary_domains
-            )
-            source_scores_with = calc_source_scores(
-                metrics_with, sources, self.primary_domains, exclude_indices={target_index}
-            )
+                # メトリクス計算
+                metrics_without = self.analyzer.analyze(answer_without, sources)
+                metrics_with = self.analyzer.analyze(answer_with, sources_with_targets)
 
-            run_result = RunResult(
-                run_index=run_idx,
+                # ターゲットの引用情報
+                target_metrics = metrics_with.get(target_index)
+                target_cited = target_metrics is not None
+                target_imp_wc = target_metrics.imp_wc if target_metrics else 0.0
+                target_imp_pwc = target_metrics.imp_pwc if target_metrics else 0.0
+
+                # 一次情報源の引用率を計算
+                primary_rate_without = calc_primary_source_rate(
+                    metrics_without, sources, self.primary_domains
+                )
+                primary_rate_with = calc_primary_source_rate(
+                    metrics_with, sources, self.primary_domains
+                )
+                primary_rate_diff = primary_rate_with - primary_rate_without
+
+                # ソース別スコアを計算
+                source_scores_without = calc_source_scores(
+                    metrics_without, sources, self.primary_domains
+                )
+                source_scores_with = calc_source_scores(
+                    metrics_with, sources, self.primary_domains, exclude_indices={target_index}
+                )
+
+                run_result = RunResult(
+                    run_index=run_idx,
+                    question_type=question_type,
+                    answer_without=answer_without,
+                    answer_with=answer_with,
+                    metrics_without=metrics_without,
+                    metrics_with=metrics_with,
+                    target_index=target_index,
+                    target_cited=target_cited,
+                    target_imp_wc=target_imp_wc,
+                    target_imp_pwc=target_imp_pwc,
+                    primary_source_rate_without=primary_rate_without,
+                    primary_source_rate_with=primary_rate_with,
+                    primary_source_rate_diff=primary_rate_diff,
+                    source_scores_without=source_scores_without,
+                    source_scores_with=source_scores_with,
+                )
+                run_results.append(run_result)
+
+                # 個別結果を保存
+                self._save_run_result(target_dir, run_idx, run_result, sources, sources_with_targets)
+
+            # ターゲット集計
+            target_summary = self._aggregate_target(
+                target_id=target["id"],
+                title=target["title"],
+                domain=target["domain"],
+                provider=provider,
                 question_type=question_type,
-                answer_without=answer_without,
-                answer_with=answer_with,
-                metrics_without=metrics_without,
-                metrics_with=metrics_with,
-                target_index=target_index,
-                target_cited=target_cited,
-                target_imp_wc=target_imp_wc,
-                target_imp_pwc=target_imp_pwc,
-                primary_source_rate_without=primary_rate_without,
-                primary_source_rate_with=primary_rate_with,
-                primary_source_rate_diff=primary_rate_diff,
-                source_scores_without=source_scores_without,
-                source_scores_with=source_scores_with,
+                question=question,
+                run_results=run_results,
             )
-            run_results.append(run_result)
 
-            # 個別結果を保存
-            self._save_run_result(target_dir, run_idx, run_result, sources, sources_with_targets)
+            # ターゲットサマリーを保存
+            self._save_target_summary(target_dir, target_summary)
 
-        # ターゲット集計
-        target_summary = self._aggregate_target(
-            target_id=target["id"],
-            title=target["title"],
-            domain=target["domain"],
-            provider=provider,
-            question_type=question_type,
-            question=question,
-            run_results=run_results,
-        )
+            print(f"  [{provider}][{question_type}][{target_title}] 完了 (citation_rate: {target_summary.citation_rate:.1%})")
+            all_summaries.append(target_summary)
 
-        # ターゲットサマリーを保存
-        self._save_target_summary(target_dir, target_summary)
-
-        print(f"  [{provider}][{question_type}][{target_title}] 完了 (citation_rate: {target_summary.citation_rate:.1%})")
-        return target_summary
+        return all_summaries
 
     async def _search_web(self, llm: LLMClient, query: str) -> list[str]:
         """Web検索を実行"""
