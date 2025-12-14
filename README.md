@@ -6,6 +6,33 @@ GEO (Generative Engine Optimization) 論文に基づくWeb検索エミュレー�
 
 ## セットアップ
 
+### 1. Chrome / Chromium のインストール
+
+Seleniumを使用したWebコンテンツ取得にChromeが必要です。
+
+**macOS:**
+```bash
+# Homebrew を使用
+brew install --cask google-chrome
+
+# または Chromium
+brew install --cask chromium
+```
+
+**Ubuntu / Debian:**
+```bash
+# Google Chrome
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo apt update
+sudo apt install -y google-chrome-stable
+
+# または Chromium（軽量）
+sudo apt install -y chromium-browser
+```
+
+### 2. Python環境のセットアップ
+
 ```bash
 # 仮想環境を作成・有効化
 python3 -m venv venv
