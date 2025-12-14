@@ -571,7 +571,8 @@ class WebContentFetcher:
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
-        self._executor.shutdown(wait=False)
+        # cancel_futures=True で保留中のタスクをキャンセル、wait=True で完了を待機
+        self._executor.shutdown(wait=True, cancel_futures=True)
         # 残っている一時ディレクトリをクリーンアップ
         _cleanup_all_chrome_dirs()
 

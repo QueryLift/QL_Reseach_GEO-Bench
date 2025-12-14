@@ -7,6 +7,7 @@ Abstract base class and implementations for GPT, Claude, and Gemini.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import os
 import random
 import re
@@ -15,6 +16,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import anthropic
+import httpx
 import openai
 from google import genai
 from google.genai import errors as genai_errors
@@ -43,6 +45,8 @@ class LLMClient(ABC):
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
             self._last_call_time = time.time()
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"[{timestamp}] LLM API呼び出し (interval: {self.rate_limit_interval}s)")
 
     @abstractmethod
     async def acall_standard(self, prompt: str) -> str:
@@ -214,6 +218,7 @@ class ClaudeClient(LLMClient):
 class GeminiClient(LLMClient):
     """Google Gemini クライアント（検索グラウンディング使用）"""
 
+    # MODEL = "gemini-2.5-pro"
     MODEL = "gemini-2.5-pro"
     MAX_RETRIES = 5  # 429エラー時の最大リトライ回数
 
@@ -228,19 +233,29 @@ class GeminiClient(LLMClient):
     def name(self) -> str:
         return f"Gemini ({self.MODEL})"
 
-    async def _retry_on_429(self, func, *args, **kwargs):
-        """429エラー時に10秒+ランダム秒待ってリトライ"""
+    async def _retry_on_error(self, func, *args, **kwargs):
+        """429エラーまたは接続エラー時にリトライ"""
+        last_error = None
         for attempt in range(self.MAX_RETRIES):
             try:
-                return await func(*args, **kwargs)
+                text = await func(*args, **kwargs)
+                print(f"[Gemini] 成功")
+                return text
             except genai_errors.ClientError as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait_time = 20 + random.randint(0, 60) # 20秒から50秒の間でランダム待機
+                    wait_time = 20 + random.randint(0, 60)
                     print(f"[Gemini] 429 RESOURCE_EXHAUSTED - {wait_time}秒待機後リトライ ({attempt + 1}/{self.MAX_RETRIES})")
                     await asyncio.sleep(wait_time)
+                    last_error = e
                 else:
                     raise
-        raise RuntimeError(f"Gemini API: {self.MAX_RETRIES}回リトライしましたが失敗しました")
+            except (httpx.ConnectError, httpx.TimeoutException, OSError) as e:
+                # ネットワーク接続エラー（DNS解決失敗、タイムアウト等）
+                wait_time = 10 + random.randint(0, 20)
+                print(f"[Gemini] 接続エラー - {wait_time}秒待機後リトライ ({attempt + 1}/{self.MAX_RETRIES}): {e}")
+                await asyncio.sleep(wait_time)
+                last_error = e
+        raise RuntimeError(f"Gemini API: {self.MAX_RETRIES}回リトライしましたが失敗しました: {last_error}")
 
     async def acall_standard(self, prompt: str) -> str:
         """非同期で Gemini を呼び出し（グラウンディングなし）"""
@@ -261,7 +276,7 @@ class GeminiClient(LLMClient):
                 raise RuntimeError("LLM からのレスポンスにテキストが含まれていません")
             return text
 
-        return await self._retry_on_429(_call)
+        return await self._retry_on_error(_call)
 
     async def search_web(self, query: str, max_results: int = 5) -> list[dict]:
         """Google検索グラウンディングを使用してソースURLを取得"""
@@ -283,7 +298,7 @@ class GeminiClient(LLMClient):
             )
             return response
 
-        response = await self._retry_on_429(_call)
+        response = await self._retry_on_error(_call)
 
         # groundingMetadata からURLを抽出
         results = []

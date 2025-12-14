@@ -305,6 +305,10 @@ class DomainSummary:
 # Utility Functions
 # =============================================================================
 
+# ターゲットコンテンツの最大文字数（Webコンテンツと同じ制限）
+MAX_TARGET_CONTENT_LENGTH = 8000
+
+
 def load_target_file(file_path: str) -> str:
     """
     ターゲットファイルを読み込み、Markdownを除去
@@ -313,11 +317,14 @@ def load_target_file(file_path: str) -> str:
         file_path: ファイルパス
 
     Returns:
-        str: Markdown記法を除去したプレーンテキスト
+        str: Markdown記法を除去したプレーンテキスト（最大8000文字）
     """
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
-    return strip_markdown(content)
+    content = strip_markdown(content)
+    if len(content) > MAX_TARGET_CONTENT_LENGTH:
+        content = content[:MAX_TARGET_CONTENT_LENGTH] + "..."
+    return content
 
 
 def extract_h1_title(file_path: str) -> str:
@@ -529,61 +536,62 @@ class ExperimentRunner:
                 targets_by_domain[domain] = []
             targets_by_domain[domain].append(target)
 
-        # 各ドメイン×プロバイダーで実行
-        for domain, domain_targets in targets_by_domain.items():
-            domain_dir = output_dir / domain
-            domain_dir.mkdir(exist_ok=True)
+        try:
+            # 各ドメイン×プロバイダーで実行
+            for domain, domain_targets in targets_by_domain.items():
+                domain_dir = output_dir / domain
+                domain_dir.mkdir(exist_ok=True)
 
-            all_domain_summaries[domain] = {}
+                all_domain_summaries[domain] = {}
 
-            for provider in self.providers:
-                print(f"\n{'='*60}")
-                print(f"ドメイン: {domain} | プロバイダー: {provider}")
-                print(f"ターゲット数: {len(domain_targets)} × 質問タイプ: {len(QUESTION_TYPES)}")
-                print(f"{'='*60}")
+                for provider in self.providers:
+                    print(f"\n{'='*60}")
+                    print(f"ドメイン: {domain} | プロバイダー: {provider}")
+                    print(f"ターゲット数: {len(domain_targets)} × 質問タイプ: {len(QUESTION_TYPES)}")
+                    print(f"{'='*60}")
 
-                llm = self._get_llm(provider)
+                    llm = self._get_llm(provider)
 
-                # 全ターゲットを並列で実行
-                target_tasks = []
-                for target in domain_targets:
-                    target_questions = questions.get(target["id"])
-                    if not target_questions:
-                        print(f"警告: ターゲット {target['id']} の質問が見つかりません")
-                        continue
+                    # 全ターゲットを並列で実行
+                    target_tasks = []
+                    for target in domain_targets:
+                        target_questions = questions.get(target["id"])
+                        if not target_questions:
+                            print(f"警告: ターゲット {target['id']} の質問が見つかりません")
+                            continue
 
-                    target_tasks.append(
-                        self._run_target_all_questions(
-                            llm=llm,
-                            provider=provider,
-                            target=target,
-                            target_questions=target_questions,
-                            output_dir=domain_dir,
+                        target_tasks.append(
+                            self._run_target_all_questions(
+                                llm=llm,
+                                provider=provider,
+                                target=target,
+                                target_questions=target_questions,
+                                output_dir=domain_dir,
+                            )
                         )
+
+                    nested_summaries = await asyncio.gather(*target_tasks)
+                    all_target_summaries = [s for summaries in nested_summaries for s in summaries]
+
+                    # ドメイン集計
+                    domain_summary = self._aggregate_domain(
+                        domain=domain,
+                        provider=provider,
+                        all_target_summaries=list(all_target_summaries),
                     )
+                    all_domain_summaries[domain][provider] = domain_summary
 
-                nested_summaries = await asyncio.gather(*target_tasks)
-                all_target_summaries = [s for summaries in nested_summaries for s in summaries]
+                    # ドメインサマリーを保存
+                    self._save_domain_summary(domain_dir, provider, domain_summary)
 
-                # ドメイン集計
-                domain_summary = self._aggregate_domain(
-                    domain=domain,
-                    provider=provider,
-                    all_target_summaries=list(all_target_summaries),
-                )
-                all_domain_summaries[domain][provider] = domain_summary
+            # ルートサマリーを保存
+            self._save_root_summary(output_dir, all_domain_summaries)
 
-                # ドメインサマリーを保存
-                self._save_domain_summary(domain_dir, provider, domain_summary)
-
-        # ルートサマリーを保存
-        self._save_root_summary(output_dir, all_domain_summaries)
-
-        # リソースをクリーンアップ
-        await self.fetcher.close()
-
-        print(f"\n完了: {output_dir}")
-        return output_dir
+            print(f"\n完了: {output_dir}")
+            return output_dir
+        finally:
+            # エラー時も確実にリソースをクリーンアップ
+            await self.fetcher.close()
 
     async def _run_target_all_questions(
         self,
