@@ -1,14 +1,7 @@
 """
-GEO-bench Core Components
-=========================
-GEO (Generative Engine Optimization) 論文に基づく引用分析とWebコンテンツ取得。
-
-提供するコンポーネント:
-- CitationAnalyzer: LLM回答の引用パターンを分析
-- WebContentFetcher: WebページのコンテンツをHTML/PDFから取得
-- strip_markdown: Markdownをプレーンテキストに変換
-
-Reference: Aggarwal et al., "GEO: Generative Engine Optimization", KDD 2024
+Web Content Fetcher
+===================
+Seleniumを使用してWebページのコンテンツを取得
 """
 
 from __future__ import annotations
@@ -26,8 +19,6 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
-from typing import TypedDict
 from urllib.parse import urlparse
 
 import httpx
@@ -142,138 +133,7 @@ atexit.register(_cleanup_all_chrome_dirs)
 
 
 # =============================================================================
-# Type Definitions
-# =============================================================================
-
-class SourceContent(TypedDict):
-    """検索ソースの型定義"""
-    url: str
-    content: str
-    media_type: str  # "PDF", "HTML", "TARGET", "ERROR"
-
-
-@dataclass
-class Citation:
-    """引用情報"""
-    index: int
-    url: str
-    sentences: list[str] = field(default_factory=list)
-    word_count: int = 0
-    position_sum: float = 0.0  # Position-adjusted計算用
-    first_pos: int | None = None  # 最初に引用された位置
-
-
-@dataclass
-class CitationMetrics:
-    """
-    引用メトリクス (GEO論文 Section 2.2.1)
-
-    Attributes:
-        imp_wc: 式(2) Imp_wc - 正規化ワードカウント (%)
-            Imp_wc(c_i, r) = Σ_{s∈S_{c_i}} |s| / Σ_{s∈S_r} |s|
-
-        imp_pwc: 式(3) Imp_pwc - 位置調整済みワードカウント (%)
-            Imp_pwc(c_i, r) = Σ_{s∈S_{c_i}} |s| · e^{-pos(s)/|S|} / Σ_{s∈S_r} |s|
-
-        citation_frequency: 引用された回数
-        first_citation_position: 最初に引用された文の位置 (0-indexed)
-    """
-    imp_wc: float = 0.0
-    imp_pwc: float = 0.0
-    citation_frequency: int = 0
-    first_citation_position: int | None = None
-
-
-# =============================================================================
-# Citation Analyzer
-# =============================================================================
-
-class CitationAnalyzer:
-    """
-    引用を分析するクラス (GEO論文 Section 2.2.1)
-
-    メトリクス:
-    - Word Count: 引用に関連する文の正規化ワードカウント
-    - Position-Adjusted Word Count: 位置による重み付けワードカウント
-    """
-
-    # 引用パターン: [1], [2], [1][2][3] など
-    CITATION_PATTERN = re.compile(r'\[(\d+)\]')
-
-    def analyze(self, response: str, sources: list[SourceContent]) -> dict[int, CitationMetrics]:
-        """
-        レスポンスから引用メトリクスを計算
-
-        Args:
-            response: LLMのレスポンステキスト
-            sources: ソースのリスト（インデックスはURLと対応）
-
-        Returns:
-            インデックス -> CitationMetrics のマッピング
-        """
-        # 文に分割
-        sentences = self._split_into_sentences(response)
-        total_word_count = sum(len(s.split()) for s in sentences)
-
-        if total_word_count == 0:
-            return {}
-
-        # 引用された Citation のみオンデマンドで作成
-        citations: dict[int, Citation] = {}
-        num_sources = len(sources)
-
-        # 各文を解析し、引用ごとに分子を累積
-        # - Imp_wc 分子: Σ|s| （引用された文のワード数合計）
-        # - Imp_pwc 分子: Σ|s|·e^{-pos/|S|} （位置重み付きワード数合計）
-        num_sentences = len(sentences)
-        for pos, sentence in enumerate(sentences):
-            cited_indices = self._extract_citations(sentence)
-            if not cited_indices:
-                continue
-
-            word_count = len(sentence.split())  # |s|
-            share = word_count / len(cited_indices)  # 複数引用時は均等分割
-            weight = pow(2.718281828, -pos / num_sentences)  # e^{-pos/|S|}
-
-            for idx in cited_indices:
-                if idx < 1 or idx > num_sources:
-                    continue  # 無効なインデックスはスキップ
-                if idx not in citations:
-                    citations[idx] = Citation(index=idx, url=sources[idx - 1]["url"])
-                cit = citations[idx]
-                if cit.first_pos is None:
-                    cit.first_pos = pos
-                cit.sentences.append(sentence)
-                cit.word_count += share
-                cit.position_sum += share * weight
-
-        # 分母で正規化してメトリクスを生成
-        # - Imp_wc = 分子 / Σ|s_r| * 100 (%)
-        # - Imp_pwc = 分子 / Σ|s_r| * 100 (%)
-        return {
-            cit.index: CitationMetrics(
-                imp_wc=cit.word_count / total_word_count * 100,
-                imp_pwc=cit.position_sum / total_word_count * 100,
-                citation_frequency=len(cit.sentences),
-                first_citation_position=cit.first_pos,
-            )
-            for cit in citations.values()
-        }
-
-    def _split_into_sentences(self, text: str) -> list[str]:
-        """テキストを文に分割"""
-        # 簡易的な文分割（。.!? で分割）
-        sentences = re.split(r'(?<=[.!?。])\s+', text.strip())
-        return [s.strip() for s in sentences if s.strip()]
-
-    def _extract_citations(self, sentence: str) -> list[int]:
-        """文から引用インデックスを抽出"""
-        matches = self.CITATION_PATTERN.findall(sentence)
-        return [int(m) for m in matches]
-
-
-# =============================================================================
-# Web Content Fetcher (Selenium-based)
+# Web Content Fetcher
 # =============================================================================
 
 class WebContentFetcher:
@@ -292,9 +152,9 @@ class WebContentFetcher:
     MAX_RETRIES = 6  # 最大リトライ回数
     MAX_CONTENT_LENGTH = 8000  # 最大文字数
 
-    # リアルなブラウザヘッダー（URL非依存）
+    # リアルなブラウザヘッダー
     BROWSER_HEADERS = {
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "accept-encoding": "gzip, deflate, br, zstd",
         "accept-language": "en-US,en;q=0.9,ja;q=0.8",
         "cache-control": "max-age=0",
@@ -311,27 +171,18 @@ class WebContentFetcher:
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
     }
 
-    # 並列フェッチ数
     MAX_WORKERS = 20
-
-    # 同一ドメインへのアクセス間隔（秒）
     DOMAIN_RATE_LIMIT_INTERVAL = float(os.getenv("WEB_RATE_LIMIT_INTERVAL", "0.3"))
 
     def __init__(self):
         self._http_client: httpx.AsyncClient | None = None
         self._executor = ThreadPoolExecutor(max_workers=self.MAX_WORKERS)
-        # ドメインごとのレートリミット管理
         self._domain_locks: dict[str, asyncio.Lock] = {}
         self._domain_last_access: dict[str, float] = {}
-        self._global_lock = asyncio.Lock()  # ドメインロック取得用
+        self._global_lock = asyncio.Lock()
 
     def _create_driver(self) -> webdriver.Chrome:
-        """
-        Selenium WebDriverのインスタンスを作成
-
-        毎回新しいドライバーを作成し、使用後にクリーンアップする方式。
-        webdriver_managerでChromeDriverを自動管理。
-        """
+        """Selenium WebDriverのインスタンスを作成"""
         options = Options()
         options.add_argument('--headless=new')
         options.add_argument('--disable-gpu')
@@ -343,40 +194,29 @@ class WebContentFetcher:
         options.add_argument('--log-level=3')
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-        # ユーザーデータディレクトリを作成
         user_data_dir = _create_chrome_user_data_dir()
         options.add_argument(f'--user-data-dir={user_data_dir}')
 
-        # webdriver_managerでChromeDriverを自動取得
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
 
-        # タイムアウト設定
         driver.set_page_load_timeout(self.PAGE_LOAD_TIMEOUT)
         driver.implicitly_wait(self.IMPLICIT_WAIT)
-
-        # クリーンアップ用にパスを保存
         driver.user_data_dir = user_data_dir  # type: ignore
 
         return driver
 
     def _quit_driver_safely(self, driver: webdriver.Chrome) -> None:
-        """ドライバーを安全に終了（プロセスを先に強制終了してから quit）"""
+        """ドライバーを安全に終了"""
         if driver is None:
             return
 
         try:
-            # ChromeDriverサービスプロセスとChromeプロセスのPIDを取得
             service_pid = None
-            chrome_pid = None
-
             if hasattr(driver, 'service') and driver.service and driver.service.process:
                 service_pid = driver.service.process.pid
 
-            # Chromeブラウザプロセスを取得（service.process経由）
             try:
-                # driver.service.process は ChromeDriver のプロセス
-                # 子プロセスとして Chrome が起動している
                 import psutil
                 if service_pid:
                     parent = psutil.Process(service_pid)
@@ -387,18 +227,16 @@ class WebContentFetcher:
                         except Exception:
                             pass
             except ImportError:
-                pass  # psutilがなければスキップ
+                pass
             except Exception:
                 pass
 
-            # ChromeDriverプロセスを強制終了（quit()の60秒タイムアウトを回避）
             if service_pid:
                 try:
                     os.kill(service_pid, signal.SIGKILL)
                 except (OSError, ProcessLookupError):
                     pass
 
-            # quit()を呼ぶ（プロセスは既に死んでいるので即座に終了）
             try:
                 driver.quit()
             except Exception:
@@ -421,15 +259,7 @@ class WebContentFetcher:
         return url.lower().endswith('.pdf')
 
     def _fetch_with_selenium(self, url: str) -> tuple[str, str, str]:
-        """
-        Seleniumでページを取得（同期処理）
-
-        毎回新しいドライバーを作成し、使用後にクリーンアップする。
-        レートリミット検出時はリトライを行う。
-
-        Returns:
-            (content, media_type, final_url)
-        """
+        """Seleniumでページを取得（同期処理）"""
         for retry in range(self.MAX_RETRIES):
             driver = None
             user_data_dir = None
@@ -440,31 +270,23 @@ class WebContentFetcher:
 
                 driver.get(url)
 
-                # ページ読み込み完了を待機（body要素の存在を確認）
                 WebDriverWait(driver, self.PAGE_LOAD_TIMEOUT).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
 
-                # 動的コンテンツの読み込みを待つ
-                # Note: time.sleep()はスレッドプール内で実行されるため、asyncioイベントループをブロックしない
                 time.sleep(self.WAIT_TIME)
 
-                # レートリミット検出（Cloudflare等の"Just a moment"ページ）
                 html = driver.page_source
                 soup = BeautifulSoup(html, 'html.parser')
                 title = soup.find('title')
                 title_text = title.get_text().strip().lower() if title else ""
 
-                # レートリミットされている場合はリトライ
                 if "just a moment" in title_text or "satisfied" in title_text:
                     print(f"[Web] レートリミット検出、{self.SLEEP_TIME}秒待機してリトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
                     time.sleep(self.SLEEP_TIME + random.randint(1, 60))
                     continue
 
-                # 最終URL（リダイレクト後）
                 final_url = driver.current_url
-
-                # テキストを抽出
                 text = self._extract_html(html)
 
                 return text, "HTML", final_url
@@ -480,12 +302,9 @@ class WebContentFetcher:
                     continue
                 raise Exception(f"Seleniumエラー: {e}")
             finally:
-                # ドライバーを安全に終了
                 self._quit_driver_safely(driver)
-                # 一時ディレクトリをクリーンアップ
                 _cleanup_chrome_temp_dir(user_data_dir)
 
-        # リトライ回数超過
         raise Exception(f"最大リトライ回数 ({self.MAX_RETRIES}) を超過")
 
     def _extract_domain(self, url: str) -> str:
@@ -498,13 +317,11 @@ class WebContentFetcher:
 
     async def _wait_for_domain_rate_limit(self, domain: str) -> None:
         """ドメインごとのレートリミットを待機"""
-        # ドメイン用のロックを取得（なければ作成）
         async with self._global_lock:
             if domain not in self._domain_locks:
                 self._domain_locks[domain] = asyncio.Lock()
             domain_lock = self._domain_locks[domain]
 
-        # ドメインごとにレートリミットを適用
         async with domain_lock:
             now = time.time()
             last_access = self._domain_last_access.get(domain, 0.0)
@@ -514,22 +331,14 @@ class WebContentFetcher:
             self._domain_last_access[domain] = time.time()
 
     async def fetch(self, url: str) -> tuple[str, str, str]:
-        """
-        URLからテキストコンテンツを取得
-
-        Returns:
-            (content, media_type, final_url): コンテンツ、メディアタイプ、リダイレクト後の最終URL
-        """
-        # ドメインごとのレートリミット
+        """URLからテキストコンテンツを取得"""
         domain = self._extract_domain(url)
         await self._wait_for_domain_rate_limit(domain)
 
         try:
-            # PDFの場合はhttpxで直接取得
             if self._is_pdf_url(url):
                 return await self._fetch_pdf(url)
 
-            # HTMLページはSeleniumで取得（スレッドプールで実行）
             loop = asyncio.get_event_loop()
             text, media_type, final_url = await loop.run_in_executor(
                 self._executor,
@@ -537,14 +346,11 @@ class WebContentFetcher:
                 url
             )
 
-            # 正規化
             text = self._normalize_text(text)
 
-            # 長さ制限
             if len(text) > self.MAX_CONTENT_LENGTH:
                 text = text[:self.MAX_CONTENT_LENGTH] + "..."
 
-            # ログ出力
             if final_url != url:
                 print(f"[Web] {media_type} {len(text)}文字 <- {final_url} (リダイレクト最終URL)")
             else:
@@ -578,20 +384,18 @@ class WebContentFetcher:
 
     def _normalize_text(self, text: str) -> str:
         """テキストを正規化"""
-        text = re.sub(r'[^\S\n]+', ' ', text)  # 改行以外の空白を正規化
-        text = re.sub(r' *\n *', '\n', text)   # 改行前後の空白を除去
-        text = re.sub(r'\n+', '\n', text)      # 連続する改行を1つに
+        text = re.sub(r'[^\S\n]+', ' ', text)
+        text = re.sub(r' *\n *', '\n', text)
+        text = re.sub(r'\n+', '\n', text)
         return text.strip()
 
     def _extract_html(self, html: str) -> str:
         """HTMLからテキストを抽出"""
         soup = BeautifulSoup(html, 'html.parser')
 
-        # 不要な要素を削除
         for tag in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript']):
             tag.decompose()
 
-        # 見出しタグの前後に改行を挿入
         for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
             tag.insert_before('\n')
             tag.insert_after('\n')
@@ -613,62 +417,5 @@ class WebContentFetcher:
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
-        # cancel_futures=True で保留中のタスクをキャンセル、wait=True で完了を待機
         self._executor.shutdown(wait=True, cancel_futures=True)
-        # 残っている一時ディレクトリをクリーンアップ
         _cleanup_all_chrome_dirs()
-
-
-# =============================================================================
-# Utility Functions
-# =============================================================================
-
-def _citation_to_letter(match: re.Match) -> str:
-    """[1] → [[a]], [2] → [[b]] などに変換"""
-    num = int(match.group(1))
-    if num < 1:
-        return match.group(0)  # 0以下はそのまま
-    # 1→a, 2→b, ..., 26→z, 27→aa, 28→ab, ...
-    result = ""
-    while num > 0:
-        num -= 1
-        result = chr(ord('a') + (num % 26)) + result
-        num //= 26
-    return f"[[{result}]]"
-
-
-def strip_markdown(content: str) -> str:
-    """
-    Markdownテキストをプレーンテキストに変換
-
-    Args:
-        content: Markdown形式のテキスト
-
-    Returns:
-        プレーンテキスト
-    """
-    # 引用番号 [1], [2] などを [[a]], [[b]] に変換（Search Results:の番号との混同を防ぐ）
-    content = re.sub(r'\[(\d+)\]', _citation_to_letter, content)
-    # 見出し（# ## ### など）の記号のみ除去（改行は保持）
-    content = re.sub(r'^#{1,6}\s*', '', content, flags=re.MULTILINE)
-    # 太字・斜体（** __ * _）を除去
-    content = re.sub(r'\*\*(.+?)\*\*', r'\1', content)
-    content = re.sub(r'__(.+?)__', r'\1', content)
-    content = re.sub(r'\*(.+?)\*', r'\1', content)
-    content = re.sub(r'_(.+?)_', r'\1', content)
-    # リンク [text](url) を text に変換
-    content = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', content)
-    # インラインコード ` を除去
-    content = re.sub(r'`([^`]+)`', r'\1', content)
-    # 水平線 --- *** ___ を除去
-    content = re.sub(r'^[-*_]{3,}\s*$', '', content, flags=re.MULTILINE)
-    # リスト記号（- * + 1. など）を除去
-    content = re.sub(r'^\s*[-*+]\s+', '', content, flags=re.MULTILINE)
-    content = re.sub(r'^\s*\d+\.\s+', '', content, flags=re.MULTILINE)
-    # 引用 > を除去
-    content = re.sub(r'^>\s*', '', content, flags=re.MULTILINE)
-    # 連続する空行を1つに
-    content = re.sub(r'\n{3,}', '\n\n', content)
-
-    return content.strip()
-

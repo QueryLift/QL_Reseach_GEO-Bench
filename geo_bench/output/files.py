@@ -1,6 +1,6 @@
 """
-ファイル出力モジュール
-
+File Output Functions
+=====================
 実験結果をJSON形式でファイルに保存する機能を提供する。
 
 主要な機能:
@@ -20,19 +20,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from metrics import (
-    CitationMetrics,
+from ..analysis import (
     PrimarySourceRate,
-    SourceScores,
     SourceScoreStats,
     Stats,
     primary_source_rate_to_dict,
     source_score_stats_to_dict,
     stats_to_dict,
 )
+from ..types import CitationMetrics
 
 if TYPE_CHECKING:
-    from geo_bench import SourceContent
+    from ..types import SourceContent
 
 
 # =============================================================================

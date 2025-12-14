@@ -1,18 +1,7 @@
 """
-メトリクス計算モジュール
-
-GEO論文に基づく引用メトリクスの計算と、一次情報源の分析を行う。
-
-主要な機能:
-- 統計値（平均、標準偏差、中央値など）の計算
-- 一次情報源の判定（URLドメインまたはTARGETタイプに基づく）
-- 一次情報源の引用率計算（imp_wc方式とcitation_frequency方式）
-- ソース別スコアの集計
-
-メトリクスの定義:
-- imp_wc: 式(2) Imp_wc - 正規化ワードカウント (%)
-- imp_pwc: 式(3) Imp_pwc - 位置調整済みワードカウント (%)
-- citation_frequency: 引用回数
+Metrics Calculation
+===================
+GEO論文に基づく引用メトリクスの計算と一次情報源の分析
 
 Reference: Aggarwal et al., "GEO: Generative Engine Optimization", KDD 2024
 """
@@ -21,46 +10,8 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass
-from typing import TypedDict
 
-
-# =============================================================================
-# Type Definitions
-# =============================================================================
-
-class SourceContent(TypedDict):
-    """
-    検索ソースの型定義
-
-    Attributes:
-        url: ソースのURL
-        content: テキストコンテンツ
-        media_type: メディアタイプ（"PDF", "HTML", "TARGET", "ERROR"）
-    """
-    url: str
-    content: str
-    media_type: str
-
-
-@dataclass
-class CitationMetrics:
-    """
-    引用メトリクス (GEO論文 Section 2.2.1)
-
-    Attributes:
-        imp_wc: 式(2) Imp_wc - 正規化ワードカウント (%)
-            Imp_wc(c_i, r) = Σ_{s∈S_{c_i}} |s| / Σ_{s∈S_r} |s|
-
-        imp_pwc: 式(3) Imp_pwc - 位置調整済みワードカウント (%)
-            Imp_pwc(c_i, r) = Σ_{s∈S_{c_i}} |s| · e^{-pos(s)/|S|} / Σ_{s∈S_r} |s|
-
-        citation_frequency: 引用された回数
-        first_citation_position: 最初に引用された文の位置 (0-indexed)
-    """
-    imp_wc: float = 0.0
-    imp_pwc: float = 0.0
-    citation_frequency: int = 0
-    first_citation_position: int | None = None
+from ..types import CitationMetrics, SourceContent
 
 
 # =============================================================================
@@ -69,17 +20,7 @@ class CitationMetrics:
 
 @dataclass
 class Stats:
-    """
-    統計値を格納するデータクラス
-
-    Attributes:
-        mean: 平均値
-        std: 標準偏差
-        min: 最小値
-        max: 最大値
-        median: 中央値
-        values: 元のデータリスト
-    """
+    """統計値"""
     mean: float
     std: float
     min: float
@@ -89,16 +30,7 @@ class Stats:
 
 
 def calc_stats(values: list[float]) -> Stats:
-    """
-    数値リストから統計値を計算
-
-    Args:
-        values: 計算対象の数値リスト
-
-    Returns:
-        Stats: 平均、標準偏差、最小、最大、中央値を含む統計オブジェクト
-        空リストの場合は全て0.0の値を持つStatsを返す
-    """
+    """数値リストから統計値を計算"""
     if not values:
         return Stats(mean=0.0, std=0.0, min=0.0, max=0.0, median=0.0, values=[])
     return Stats(
@@ -112,16 +44,7 @@ def calc_stats(values: list[float]) -> Stats:
 
 
 def stats_to_dict(stats: Stats, decimals: int = 2) -> dict:
-    """
-    Stats オブジェクトを辞書に変換
-
-    Args:
-        stats: 変換対象のStatsオブジェクト
-        decimals: 小数点以下の桁数
-
-    Returns:
-        dict: mean, std, min, max, median, valuesを含む辞書
-    """
+    """Stats オブジェクトを辞書に変換"""
     return {
         "mean": round(stats.mean, decimals),
         "std": round(stats.std, decimals),
@@ -141,25 +64,10 @@ def is_primary_source(
     primary_domains: list[str],
     media_type: str | None = None,
 ) -> bool:
-    """
-    URLまたはメディアタイプが一次情報源かどうかを判定
-
-    判定基準:
-    1. media_type が "TARGET" の場合は常に一次情報源
-    2. URLに primary_domains のいずれかが含まれる場合は一次情報源
-
-    Args:
-        url: 判定対象のURL
-        primary_domains: 一次情報源と判定するドメインのリスト（部分一致）
-        media_type: メディアタイプ（"PDF", "HTML", "TARGET" など）
-
-    Returns:
-        bool: 一次情報源であればTrue
-    """
+    """URLまたはメディアタイプが一次情報源かどうかを判定"""
     # TARGET は常に一次情報源
     if media_type == "TARGET":
         return True
-
     # ドメイン部分一致で判定
     url_lower = url.lower()
     for domain in primary_domains:
@@ -174,51 +82,24 @@ def is_primary_source(
 
 @dataclass
 class SourceScores:
-    """
-    ソース別スコア（一次情報源/非一次情報源）
-
-    一次情報源と非一次情報源それぞれのimp_wc, imp_pwc, citation_frequencyの
-    値リストを保持する。
-
-    Attributes:
-        primary_imp_wc_values: 一次情報源のimp_wcリスト
-        primary_imp_pwc_values: 一次情報源のimp_pwcリスト
-        primary_freq_values: 一次情報源のcitation_frequencyリスト
-        non_primary_imp_wc_values: 非一次情報源のimp_wcリスト
-        non_primary_imp_pwc_values: 非一次情報源のimp_pwcリスト
-        non_primary_freq_values: 非一次情報源のcitation_frequencyリスト
-    """
-    # 一次情報源のスコア
+    """ソース別スコア（一次情報源/非一次情報源）"""
     primary_imp_wc_values: list[float]
     primary_imp_pwc_values: list[float]
-    primary_freq_values: list[int]
-    # 非一次情報源のスコア
+    primary_frequency_values: list[int]
     non_primary_imp_wc_values: list[float]
     non_primary_imp_pwc_values: list[float]
-    non_primary_freq_values: list[int]
+    non_primary_frequency_values: list[int]
 
 
 @dataclass
-class SourceScoreStats:
-    """
-    ソース別スコア統計
-
-    Attributes:
-        primary_imp_wc: 一次情報源のimp_wc統計
-        primary_imp_pwc: 一次情報源のimp_pwc統計
-        primary_freq: 一次情報源のcitation_frequency統計
-        non_primary_imp_wc: 非一次情報源のimp_wc統計
-        non_primary_imp_pwc: 非一次情報源のimp_pwc統計
-        non_primary_freq: 非一次情報源のcitation_frequency統計
-    """
-    # 一次情報源
+class SourceScoresStats:
+    """ソース別スコア統計"""
     primary_imp_wc: Stats
     primary_imp_pwc: Stats
-    primary_freq: Stats
-    # 非一次情報源
+    primary_frequency: Stats
     non_primary_imp_wc: Stats
     non_primary_imp_pwc: Stats
-    non_primary_freq: Stats
+    non_primary_frequency: Stats
 
 
 def calc_source_scores(
@@ -227,22 +108,7 @@ def calc_source_scores(
     primary_domains: list[str],
     target_indices: set[int] | None = None,
 ) -> SourceScores:
-    """
-    一次情報源/非一次情報源のスコアを計算
-
-    各引用ソースのメトリクスを一次情報源と非一次情報源に分類し、
-    それぞれのimp_wc, imp_pwc, citation_frequencyの値リストを返す。
-
-    Args:
-        metrics: インデックス -> CitationMetrics のマッピング
-        sources: ソースリスト（Webソースのみ、ターゲットは含まない）
-        primary_domains: 一次情報源のドメインリスト
-        target_indices: ターゲットのインデックス（1-indexed）のセット
-            指定されたインデックスはTARGETとして一次情報源に分類される
-
-    Returns:
-        SourceScores: 一次/非一次情報源別のスコアリスト
-    """
+    """一次情報源/非一次情報源のスコアを計算"""
     target_indices = target_indices or set()
 
     primary_imp_wc: list[float] = []
@@ -284,17 +150,7 @@ def calc_source_scores(
 
 
 def aggregate_source_scores(scores_list: list[SourceScores]) -> SourceScoreStats:
-    """
-    複数のSourceScoresを集計してSourceScoreStatsに変換
-
-    複数回の実行結果を統合し、一次/非一次情報源それぞれの統計値を計算する。
-
-    Args:
-        scores_list: SourceScoresのリスト
-
-    Returns:
-        SourceScoreStats: 集計された統計値
-    """
+    """複数のSourceScoresを集計してSourceScoreStatsに変換"""
     primary_wc_all: list[float] = []
     primary_pwc_all: list[float] = []
     primary_freq_all: list[float] = []
@@ -321,15 +177,7 @@ def aggregate_source_scores(scores_list: list[SourceScores]) -> SourceScoreStats
 
 
 def source_score_stats_to_dict(stats: SourceScoreStats) -> dict:
-    """
-    SourceScoreStats を辞書に変換
-
-    Args:
-        stats: 変換対象のSourceScoreStats
-
-    Returns:
-        dict: primary/non_primaryごとのimp_wc, imp_pwc, freq統計を含む辞書
-    """
+    """SourceScoreStats を辞書に変換"""
     return {
         "primary": {
             "imp_wc": stats_to_dict(stats.primary_imp_wc),
@@ -350,17 +198,7 @@ def source_score_stats_to_dict(stats: SourceScoreStats) -> dict:
 
 @dataclass
 class PrimarySourceRate:
-    """
-    一次情報源の引用率
-
-    2種類の計算方法で一次情報源の比率を保持する。
-
-    Attributes:
-        by_imp_wc: imp_wc（ワードカウント）ベースの一次情報源率 (%)
-            = primary_imp_wc_sum / total_imp_wc_sum * 100
-        by_frequency: citation_frequency（引用回数）ベースの一次情報源率 (%)
-            = primary_frequency_sum / total_frequency_sum * 100
-    """
+    """一次情報源の引用率"""
     by_imp_wc: float
     by_frequency: float
 
@@ -371,30 +209,12 @@ def calc_primary_source_rate(
     primary_domains: list[str],
     target_indices: set[int] | None = None,
 ) -> PrimarySourceRate:
-    """
-    一次情報源の引用率を計算（imp_wcとcitation_frequency両方）
-
-    分母: 全引用ソースのimp_wc/citation_frequencyの合計
-    分子: 一次情報源のimp_wc/citation_frequencyの合計
-
-    TARGETは常に一次情報源としてカウントされる。
-
-    Args:
-        metrics: インデックス -> CitationMetrics のマッピング（引用されたソースのみ含む）
-        sources: ソースリスト（Webソースのみ、ターゲットは含まない）
-        primary_domains: 一次情報源のドメインリスト
-        target_indices: ターゲットのインデックス（1-indexed）のセット
-            指定されたインデックスはTARGETとして一次情報源にカウントされる
-
-    Returns:
-        PrimarySourceRate: imp_wcベースとfrequencyベースの両方の一次情報源率
-    """
+    """一次情報源の引用率を計算（imp_wcとcitation_frequency両方）"""
     if not metrics:
         return PrimarySourceRate(by_imp_wc=0.0, by_frequency=0.0)
 
     target_indices = target_indices or set()
 
-    # 合計値を計算
     total_imp_wc = 0.0
     primary_imp_wc = 0.0
     total_freq = 0
@@ -425,16 +245,7 @@ def calc_primary_source_rate(
 
 
 def primary_source_rate_to_dict(rate: PrimarySourceRate, decimals: int = 2) -> dict:
-    """
-    PrimarySourceRate を辞書に変換
-
-    Args:
-        rate: 変換対象のPrimarySourceRate
-        decimals: 小数点以下の桁数
-
-    Returns:
-        dict: by_imp_wcとby_frequencyを含む辞書
-    """
+    """PrimarySourceRate を辞書に変換"""
     return {
         "by_imp_wc": round(rate.by_imp_wc, decimals),
         "by_frequency": round(rate.by_frequency, decimals),
