@@ -68,12 +68,12 @@ from file_output import (
 
 # 実験設定
 EXPERIMENT_CONFIG = {
-    "providers": ["gpt"],                # 使用するプロバイダー
+    "providers": ["gemini"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
     "targets_dir": "targets",             # ターゲットファイルのディレクトリ
     "output_dir": "outputs",              # 出力ディレクトリ
-    "questions_cache_file": "questions_cache.json",  # 質問キャッシュファイル
+    "questions_cache_file": "questions.json",  # 質問キャッシュファイル
     # 一次情報源と判定するドメイン（部分一致）
     "primary_domains": [
         "jimin.jp",
@@ -1363,8 +1363,20 @@ class ExperimentRunner:
 # Main
 # =============================================================================
 
-# ターゲットを検出するドメインリスト
-TARGET_DOMAINS = ["econ"]
+def get_target_domains(targets_dir: str) -> list[str]:
+    """
+    ターゲットディレクトリ内の全ドメイン（サブディレクトリ）を検出
+
+    Args:
+        targets_dir: ターゲットディレクトリのパス
+
+    Returns:
+        list[str]: ドメイン名のリスト
+    """
+    base_path = Path(targets_dir)
+    if not base_path.exists():
+        return []
+    return [d.name for d in base_path.iterdir() if d.is_dir() and not d.name.startswith(".")]
 
 
 def parse_args() -> argparse.Namespace:
@@ -1402,15 +1414,23 @@ async def main():
     args = parse_args()
     config = EXPERIMENT_CONFIG
 
+    # ドメインを自動検出
+    target_domains = get_target_domains(config["targets_dir"])
+    if not target_domains:
+        print(f"エラー: ターゲットディレクトリが空です: {config['targets_dir']}")
+        sys.exit(1)
+
+    print(f"検出されたドメイン: {target_domains}")
+
     # ターゲットを検出
-    targets = discover_targets(config["targets_dir"], TARGET_DOMAINS)
+    targets = discover_targets(config["targets_dir"], target_domains)
 
     if not targets:
         print("エラー: ターゲットが見つかりません")
         sys.exit(1)
 
     print(f"検出されたターゲット: {len(targets)}件")
-    for domain in TARGET_DOMAINS:
+    for domain in target_domains:
         count = sum(1 for t in targets if t["domain"] == domain)
         print(f"  {domain}: {count}件")
 
