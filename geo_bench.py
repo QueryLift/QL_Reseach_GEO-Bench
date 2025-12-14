@@ -504,7 +504,7 @@ class WebContentFetcher:
 
             # ログ出力
             if final_url != url:
-                print(f"[Web] {media_type} {len(text)}文字 <- {url} -> {final_url}")
+                print(f"[Web] {media_type} {len(text)}文字 <- {final_url} (リダイレクト最終URL)")
             else:
                 print(f"[Web] {media_type} {len(text)}文字 <- {url}")
 
@@ -528,7 +528,7 @@ class WebContentFetcher:
             text = text[:self.MAX_CONTENT_LENGTH] + "..."
 
         if final_url != url:
-            print(f"[Web] PDF {len(text)}文字 <- {url} -> {final_url}")
+            print(f"[Web] PDF {len(text)}文字 <- {final_url} (リダイレクト最終URL)")
         else:
             print(f"[Web] PDF {len(text)}文字 <- {url}")
 
