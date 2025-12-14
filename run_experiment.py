@@ -68,7 +68,7 @@ from file_output import (
 
 # 実験設定
 EXPERIMENT_CONFIG = {
-    "providers": ["gpt"],                # 使用するプロバイダー
+    "providers": ["gemini"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
     "targets_dir": "targets",             # ターゲットファイルのディレクトリ
@@ -76,7 +76,8 @@ EXPERIMENT_CONFIG = {
     "questions_cache_file": "questions.json",  # 質問キャッシュファイル
     # 一次情報源と判定するドメイン（部分一致）
     "primary_domains": [
-        "jimin.jp",
+        "openai.com",
+        "chatgpt.com"
     ],
 }
 
@@ -557,12 +558,12 @@ class ExperimentRunner:
         output_dir: Path,
     ) -> list[TargetSummary]:
         """
-        1ターゲットの全質問タイプを同じソースで実験
+        1ターゲットの全質問タイプを独自のソースで実験
 
         ポイント:
-        - Web検索は1回のみ（experiment質問で検索）
-        - 同じソースを全質問タイプで使い回す
-        - 質問の違いによる効果のみを測定
+        - Web検索は質問タイプごとに実行
+        - 各質問タイプで独自のソースを取得
+        - 質問と検索結果の両方の効果を測定
         - TARGETは常に一次情報源としてカウント
 
         Args:
@@ -577,15 +578,7 @@ class ExperimentRunner:
         """
         target_title = target['title']
 
-        # 1. Web検索（experiment質問で1回のみ）
-        search_query = target_questions["experiment"]
-        print(f"  [{provider}][{target_title}] Web検索開始（全質問タイプ共通）")
-        source_urls = await self._search_web(llm, search_query)
-
-        # 2. ソースを取得（1回のみ）
-        sources = await self._fetch_sources(source_urls)
-
-        # 3. ターゲットコンテンツを準備
+        # ターゲットコンテンツを準備（全質問タイプで共通）
         target_content = load_target_file(target["file"])
         target_source: SourceContent = {
             "url": target["url"],
@@ -593,12 +586,7 @@ class ExperimentRunner:
             "media_type": "TARGET",
         }
 
-        # sources_with_targets: [Webソース1, ..., WebソースN, ターゲット]
-        sources_with_targets = sources.copy()
-        sources_with_targets.append(target_source)
-        target_index = len(sources_with_targets)  # 1-indexed
-
-        # 4. 各質問タイプごとに回答生成（同じソースを使用）
+        # 各質問タイプごとに独自のソースを取得して実験
         all_summaries: list[TargetSummary] = []
 
         for question_type in QUESTION_TYPES:
@@ -606,6 +594,18 @@ class ExperimentRunner:
             folder_name = f"{provider}_{question_type}_{sanitize_folder_name(target_title)}"
             target_dir = output_dir / folder_name
             target_dir.mkdir(exist_ok=True)
+
+            # 1. 質問タイプごとにWeb検索
+            print(f"  [{provider}][{question_type}][{target_title}] Web検索開始")
+            source_urls = await self._search_web(llm, question)
+
+            # 2. ソースを取得
+            sources = await self._fetch_sources(source_urls)
+
+            # 3. ターゲットを追加したソースリストを作成
+            sources_with_targets = sources.copy()
+            sources_with_targets.append(target_source)
+            target_index = len(sources_with_targets)  # 1-indexed
 
             # ソースを保存
             save_sources(target_dir, sources)

@@ -12,7 +12,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 依存パッケージをインストール
-pip install openai anthropic google-genai httpx beautifulsoup4 python-dotenv pdfplumber
+pip install openai anthropic google-genai httpx beautifulsoup4 python-dotenv pdfplumber selenium webdriver-manager
 ```
 
 `.env` ファイルを作成（使用するプロバイダーに応じて設定）：
@@ -85,11 +85,13 @@ python run_experiment.py --show-questions
 
 ## 処理フロー
 
-1. **Web検索** - 選択したプロバイダーのWeb検索機能でソースURLを取得
-2. **コンテンツ取得** - 各URLからHTML/PDFを取得しテキスト抽出（並列処理）
+各ターゲット × 各質問タイプごとに：
+
+1. **Web検索** - 質問タイプごとに独自のWeb検索を実行してソースURLを取得
+2. **コンテンツ取得** - 各URLからHTML/PDFを取得しテキスト抽出（Selenium使用）
 3. **回答生成** - without/with を `asyncio.gather` で並列実行
 
-**API呼び出し**: 計3回（検索1回 + 回答生成2回並列）
+**API呼び出し**: 各ターゲットにつき計9回（検索3回 + 回答生成6回）
 
 ## 出力ファイル
 
