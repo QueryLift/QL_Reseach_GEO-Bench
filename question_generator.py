@@ -45,8 +45,8 @@ class GeneratedQuestions(TypedDict):
 # 質問タイプのリスト
 QUESTION_TYPES = ["vague", "experiment", "aligned"]
 
-# 質問生成プロンプト
-QUESTION_GENERATION_PROMPT = """あなたはOpenAIの技術記事に関する質問を生成するアシスタントです。
+# 質問生成プロンプト（OpenAI用）
+QUESTION_GENERATION_PROMPT_FOR_OPENAI = """あなたはOpenAIの技術記事に関する質問を生成するアシスタントです。
 以下のターゲット記事のタイトルと内容に基づいて、3種類の質問を日本語で生成してください。
 
 【重要】すべての質問は「OpenAIがどのような情報を発信しているか」を聞く形式にしてください。
@@ -86,6 +86,46 @@ QUESTION_GENERATION_PROMPT = """あなたはOpenAIの技術記事に関する質
   "aligned": "最も具体的な質問文"
 }}"""
 
+# 質問生成プロンプト（自民党政策用）
+QUESTION_GENERATION_PROMPT_FOR_JIMIN = """あなたは政策に関する質問を生成するアシスタントです。
+以下のターゲット記事のタイトルと内容に基づいて、3種類の質問を日本語で生成してください。
+
+【重要】すべての質問は「自民党がどのような政策を発信しているか」を聞く形式にしてください。
+
+【ターゲット記事】
+タイトル: {title}
+内容: {content}
+
+【生成する質問の種類】
+
+1. vague（最も抽象的な質問）:
+ターゲットのタイトルを「二段階」抽象化した、広いカテゴリーについて総合的に知りたいという質問。
+具体的なテーマ名は出さず、上位概念で聞く。
+例:
+- タイトル「子ども・子育て支援金」→「自民党の社会保障政策について教えてください。」
+- タイトル「防衛費増額」→「自民党の安全保障政策について教えてください。」
+- タイトル「デジタル田園都市国家構想」→「自民党の地方創生政策について教えてください。」
+- タイトル「GX推進法」→「自民党の環境・エネルギー政策について教えてください。」
+
+2. experiment（中間的な質問）:
+ターゲットのタイトルのテーマについて、全体像や基本的な特徴を聞く質問。
+タイトルのテーマ名は使うが、記事の詳細には踏み込まない。
+例:
+- タイトル「子ども・子育て支援金」→「自民党の子ども・子育て支援金について教えてください。」
+- タイトル「防衛費増額」→「自民党の防衛費増額とは何ですか？」
+
+3. aligned（最も具体的な質問）:
+ターゲットの記事内容に完全に沿った、具体的で詳細な質問。
+記事に登場する具体的な政策、数値、制度などを含めて深く聞く。
+例: 「自民党の子ども・子育て支援金の財源はどのように確保され、具体的にどのような給付が予定されていますか？また、従来の子育て支援策と比較してどのような点が拡充されていますか？」
+
+【出力形式】
+以下のJSON形式で出力してください。余計な説明は不要です。
+{{
+  "vague": "最も抽象的な質問文",
+  "experiment": "中間的な質問文",
+  "aligned": "最も具体的な質問文"
+}}"""
 
 # =============================================================================
 # QuestionGenerator Class
@@ -99,16 +139,19 @@ class QuestionGenerator:
 
     Attributes:
         llm: LLMクライアントインスタンス
+        prompt_template: 使用するプロンプトテンプレート
     """
 
-    def __init__(self, llm: LLMClient):
+    def __init__(self, llm: LLMClient, prompt_template: str):
         """
         QuestionGeneratorを初期化
 
         Args:
             llm: 質問生成に使用するLLMクライアント
+            prompt_template: 使用するプロンプトテンプレート（必須）
         """
         self.llm = llm
+        self.prompt_template = prompt_template
 
     async def generate(self, title: str, content: str) -> GeneratedQuestions:
         """
@@ -125,7 +168,7 @@ class QuestionGenerator:
             LLM呼び出しが失敗した場合やJSONパースに失敗した場合は、
             デフォルトの質問文を返す。
         """
-        prompt = QUESTION_GENERATION_PROMPT.format(title=title, content=content)
+        prompt = self.prompt_template.format(title=title, content=content)
         response = await self.llm.acall_standard(prompt)
 
         # JSONをパース
@@ -217,6 +260,7 @@ async def generate_all_questions(
     targets: list[dict],
     llm: LLMClient,
     cache_file: str,
+    prompt_template: str,
 ) -> dict[str, GeneratedQuestions]:
     """
     全ターゲットの質問を生成（キャッシュ利用）
@@ -231,6 +275,7 @@ async def generate_all_questions(
             - content: 本文内容
         llm: LLMクライアント
         cache_file: キャッシュファイルパス
+        prompt_template: 使用するプロンプトテンプレート（必須）
 
     Returns:
         target_id -> GeneratedQuestions のマッピング辞書
@@ -249,7 +294,7 @@ async def generate_all_questions(
 
     print(f"質問生成: {len(targets_to_generate)}件（キャッシュ済み: {len(cache)}件）")
 
-    generator = QuestionGenerator(llm)
+    generator = QuestionGenerator(llm, prompt_template)
 
     # 並列で質問を生成
     async def generate_for_target(target: dict) -> tuple[str, GeneratedQuestions]:

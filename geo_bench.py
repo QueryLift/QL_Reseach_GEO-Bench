@@ -402,7 +402,7 @@ class WebContentFetcher:
 
                 # レートリミットされている場合はリトライ
                 if "just a moment" in title_text or "satisfied" in title_text:
-                    print(f"[Web] レートリミット検出、{self.SLEEP_TIME}秒待機してリトライ ({retry + 1}/{self.MAX_RETRIES})")
+                    print(f"[Web] レートリミット検出、{self.SLEEP_TIME}秒待機してリトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
                     time.sleep(self.SLEEP_TIME)
                     continue
 
@@ -416,12 +416,12 @@ class WebContentFetcher:
 
             except TimeoutException:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES})")
+                    print(f"[Web] タイムアウト、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url}")
                     continue
                 raise Exception(f"ページ読み込みタイムアウト ({self.PAGE_LOAD_TIMEOUT}秒)")
             except WebDriverException as e:
                 if retry < self.MAX_RETRIES - 1:
-                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {e}")
+                    print(f"[Web] Seleniumエラー、リトライ ({retry + 1}/{self.MAX_RETRIES}): {url} - {e}")
                     continue
                 raise Exception(f"Seleniumエラー: {e}")
             finally:

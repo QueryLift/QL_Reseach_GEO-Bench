@@ -16,6 +16,7 @@ GEO-bench 実験スクリプト
 import argparse
 import asyncio
 import re
+import shutil
 import statistics
 import sys
 from dataclasses import dataclass
@@ -36,6 +37,8 @@ from geo_bench import (
 )
 from question_generator import (
     QUESTION_TYPES,
+    QUESTION_GENERATION_PROMPT_FOR_OPENAI,
+    QUESTION_GENERATION_PROMPT_FOR_JIMIN,
     GeneratedQuestions,
     generate_all_questions,
 )
@@ -71,14 +74,23 @@ EXPERIMENT_CONFIG = {
     "providers": ["gemini"],                # 使用するプロバイダー
     "num_runs": 2,                        # 各ターゲットの繰り返し回数
     "max_sources": 5,                     # Web検索で取得するソース数
-    "targets_dir": "targets",             # ターゲットファイルのディレクトリ
+    "targets_dir": "jimin_targets",             # ターゲットファイルのディレクトリ
     "output_dir": "outputs",              # 出力ディレクトリ
     "questions_cache_file": "questions.json",  # 質問キャッシュファイル
     # 一次情報源と判定するドメイン（部分一致）
     "primary_domains": [
-        "openai.com",
-        "chatgpt.com"
+        # "openai.com",
+        # "chatgpt.com"
+        "jimin.jp",
     ],
+    # 質問生成プロンプトタイプ: "openai" or "jimin"
+    "prompt_type": "jimin",
+}
+
+# プロンプトタイプのマッピング
+PROMPT_TYPES = {
+    "openai": QUESTION_GENERATION_PROMPT_FOR_OPENAI,
+    "jimin": QUESTION_GENERATION_PROMPT_FOR_JIMIN,
 }
 
 # GEO論文のプロンプトテンプレート
@@ -338,7 +350,7 @@ def discover_targets(targets_dir: str, domains: list[str]) -> list[TargetConfig]
             targets.append({
                 "id": target_id,
                 "file": str(md_file),
-                "url": f"https://jimin.jp/TARGET",
+                "url": f"https://TARGET",
                 "domain": domain,
                 "title": title,
                 "content": content,
@@ -453,6 +465,7 @@ class ExperimentRunner:
         targets: list[TargetConfig],
         questions: dict[str, GeneratedQuestions],
         output_name: str | None = None,
+        questions_cache_file: str | None = None,
     ) -> Path:
         """
         実験を実行
@@ -461,6 +474,7 @@ class ExperimentRunner:
             targets: ターゲットリスト
             questions: ターゲットIDごとの質問マッピング
             output_name: 出力フォルダ名（Noneの場合はタイムスタンプ）
+            questions_cache_file: 質問キャッシュファイルのパス（指定時は出力フォルダにコピー）
 
         Returns:
             Path: 出力ディレクトリのパス
@@ -481,6 +495,11 @@ class ExperimentRunner:
             targets=targets,
             questions={tid: dict(q) for tid, q in questions.items()},
         )
+
+        # 質問キャッシュファイルを出力フォルダにコピー
+        if questions_cache_file and Path(questions_cache_file).exists():
+            shutil.copy(questions_cache_file, output_dir / "questions.json")
+            print(f"質問キャッシュをコピー: {output_dir / 'questions.json'}")
 
         # ドメインごとに集計
         all_domain_summaries: dict[str, dict[str, DomainSummary]] = {}
@@ -1438,11 +1457,21 @@ async def main():
     question_llm = create_llm_client(config["providers"][0])
     print(f"\n質問生成用LLM: {question_llm.name}")
 
+    # プロンプトタイプを取得
+    prompt_type = config.get("prompt_type", "openai")
+    prompt_template = PROMPT_TYPES.get(prompt_type)
+    if prompt_template is None:
+        print(f"エラー: 不明なプロンプトタイプ: {prompt_type}")
+        print(f"利用可能なタイプ: {list(PROMPT_TYPES.keys())}")
+        sys.exit(1)
+    print(f"質問生成プロンプト: {prompt_type}")
+
     # 質問を生成（キャッシュ利用）
     questions = await generate_all_questions(
         targets=[{"id": t["id"], "title": t["title"], "content": t["content"]} for t in targets],
         llm=question_llm,
         cache_file=config["questions_cache_file"],
+        prompt_template=prompt_template,
     )
 
     # 質問表示オプション
@@ -1472,7 +1501,12 @@ async def main():
         primary_domains=config.get("primary_domains", []),
     )
 
-    await runner.run_experiment(targets, questions, output_name=args.output_name)
+    await runner.run_experiment(
+        targets,
+        questions,
+        output_name=args.output_name,
+        questions_cache_file=config["questions_cache_file"],
+    )
 
 
 if __name__ == "__main__":
