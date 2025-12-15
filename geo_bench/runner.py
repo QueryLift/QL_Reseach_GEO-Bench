@@ -27,7 +27,7 @@ from .analysis import (
     CitationAnalyzer,
     PrimarySourceRate,
     SourceScores,
-    SourceScoreStats,
+    SourceScoresStats,
     Stats,
     aggregate_source_scores,
     calc_primary_source_rate,
@@ -149,8 +149,8 @@ class TargetSummary:
     primary_rate_with_by_freq: Stats
     primary_rate_diff_by_freq: Stats
     # ソース別スコア統計
-    source_scores_without: SourceScoreStats
-    source_scores_with: SourceScoreStats
+    source_scores_without: SourceScoresStats
+    source_scores_with: SourceScoresStats
 
 
 @dataclass
@@ -195,8 +195,8 @@ class QuestionTypeSummary:
     primary_rate_diff_avg_by_freq: float
     primary_rate_diff_median_by_freq: float
     # ソース別スコア
-    source_scores_without: SourceScoreStats
-    source_scores_with: SourceScoreStats
+    source_scores_without: SourceScoresStats
+    source_scores_with: SourceScoresStats
     target_summaries: list[TargetSummary]
 
 
@@ -840,7 +840,7 @@ class ExperimentRunner:
             primary_diff_median_by_freq = 0.0
 
         # ソース別スコアを集計（全ターゲット）
-        def aggregate_all_source_scores(get_scores) -> SourceScoreStats:
+        def aggregate_all_source_scores(get_scores) -> SourceScoresStats:
             all_scores = [get_scores(t) for t in target_summaries]
             # SourceScoreStatsの各Statsからvaluesを取り出して再集計
             combined = []
@@ -848,10 +848,10 @@ class ExperimentRunner:
                 combined.append(SourceScores(
                     primary_imp_wc_values=stats.primary_imp_wc.values,
                     primary_imp_pwc_values=stats.primary_imp_pwc.values,
-                    primary_freq_values=[int(v) for v in stats.primary_freq.values],
+                    primary_frequency_values=[int(v) for v in stats.primary_frequency.values],
                     non_primary_imp_wc_values=stats.non_primary_imp_wc.values,
                     non_primary_imp_pwc_values=stats.non_primary_imp_pwc.values,
-                    non_primary_freq_values=[int(v) for v in stats.non_primary_freq.values],
+                    non_primary_frequency_values=[int(v) for v in stats.non_primary_frequency.values],
                 ))
             return aggregate_source_scores(combined)
 
@@ -941,7 +941,7 @@ class ExperimentRunner:
         Returns:
             dict: JSON出力用の辞書
         """
-        from .output.files import source_score_stats_to_dict
+        from .output.files import source_scores_stats_to_dict
 
         target_details = [
             {

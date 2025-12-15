@@ -22,10 +22,10 @@ from typing import TYPE_CHECKING
 
 from ..analysis import (
     PrimarySourceRate,
-    SourceScoreStats,
+    SourceScoresStats,
     Stats,
     primary_source_rate_to_dict,
-    source_score_stats_to_dict,
+    source_scores_stats_to_dict,
     stats_to_dict,
 )
 from ..types import CitationMetrics
@@ -265,8 +265,8 @@ def save_target_summary(
     primary_rate_without: PrimarySourceRate | Stats,
     primary_rate_with: PrimarySourceRate | Stats,
     primary_rate_diff: Stats | None = None,
-    source_scores_without: SourceScoreStats | None = None,
-    source_scores_with: SourceScoreStats | None = None,
+    source_scores_without: SourceScoresStats | None = None,
+    source_scores_with: SourceScoresStats | None = None,
     num_runs_with_non_primary: int | None = None,
 ) -> None:
     """
@@ -322,7 +322,6 @@ def save_target_summary(
     # 非一次情報源があった実行回数を追加
     if num_runs_with_non_primary is not None:
         data["num_runs_with_non_primary"] = num_runs_with_non_primary
-        data["primary_source_rate"]["note"] = "withoutに非一次情報源が含まれているrunのみから計算"
 
     # オプショナルなフィールド
     if primary_rate_diff is not None:
@@ -330,10 +329,10 @@ def save_target_summary(
 
     if source_scores_without is not None:
         data["source_scores"] = {
-            "without": source_score_stats_to_dict(source_scores_without),
+            "without": source_scores_stats_to_dict(source_scores_without),
         }
         if source_scores_with is not None:
-            data["source_scores"]["with"] = source_score_stats_to_dict(source_scores_with)
+            data["source_scores"]["with"] = source_scores_stats_to_dict(source_scores_with)
 
     save_json(output_dir / "summary.json", data)
 
@@ -365,8 +364,8 @@ def question_type_summary_to_dict(
     primary_rate_by_freq_with_median: float = 0.0,
     primary_rate_by_freq_diff_avg: float = 0.0,
     primary_rate_by_freq_diff_median: float = 0.0,
-    source_scores_without: SourceScoreStats | None = None,
-    source_scores_with: SourceScoreStats | None = None,
+    source_scores_without: SourceScoresStats | None = None,
+    source_scores_with: SourceScoresStats | None = None,
     target_details: list[dict] | None = None,
 ) -> dict:
     """
@@ -446,10 +445,10 @@ def question_type_summary_to_dict(
 
     if source_scores_without is not None:
         result["source_scores"] = {
-            "without": source_score_stats_to_dict(source_scores_without),
+            "without": source_scores_stats_to_dict(source_scores_without),
         }
         if source_scores_with is not None:
-            result["source_scores"]["with"] = source_score_stats_to_dict(source_scores_with)
+            result["source_scores"]["with"] = source_scores_stats_to_dict(source_scores_with)
 
     if target_details is not None:
         result["targets"] = target_details

@@ -106,24 +106,29 @@ LLM_RATE_LIMIT_INTERVAL=2.0
 ## 実行
 
 ```bash
+# 基本的な実行（モジュールとして実行）
+python -m geo_bench.cli -c configs/test-config.json
+
 # Jimin × Gemini で実行
-python run_experiment.py -c configs/jimin-gemini-config.json
+python -m geo_bench.cli -c configs/jimin-gemini-config.json
 
 # Jimin × GPT で実行
-python run_experiment.py -c configs/jimin-gpt-config.json
+python -m geo_bench.cli -c configs/jimin-gpt-config.json
 
 # OpenAI × Gemini で実行
-python run_experiment.py -c configs/openai-gemini-config.json
+python -m geo_bench.cli -c configs/openai-gemini-config.json
 
 # 出力フォルダ名を指定
-python run_experiment.py -c configs/jimin-gemini-config.json -o my_experiment
+python -m geo_bench.cli -c configs/jimin-gemini-config.json -o my_experiment
 
 # 質問生成のみ（実験は実行しない）
-python run_experiment.py -c configs/jimin-gemini-config.json -q
+python -m geo_bench.cli -c configs/jimin-gemini-config.json -q
 
 # 生成された質問を表示
-python run_experiment.py -c configs/jimin-gemini-config.json --show-questions
+python -m geo_bench.cli -c configs/jimin-gemini-config.json --show-questions
 ```
+
+**注意**: 必ず `python -m geo_bench.cli` の形式で実行してください。直接 `python geo_bench/cli.py` で実行すると相対インポートエラーが発生します。
 
 ### コマンドライン引数
 

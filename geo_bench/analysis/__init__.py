@@ -10,8 +10,8 @@ Usage:
 from .citation import CitationAnalyzer
 from .metrics import (
     PrimarySourceRate,
-    SourceScoreStats,
     SourceScores,
+    SourceScoresStats,
     Stats,
     aggregate_source_scores,
     calc_primary_source_rate,
@@ -19,7 +19,7 @@ from .metrics import (
     calc_stats,
     is_primary_source,
     primary_source_rate_to_dict,
-    source_score_stats_to_dict,
+    source_scores_stats_to_dict,
     stats_to_dict,
 )
 
@@ -30,10 +30,10 @@ __all__ = [
     "stats_to_dict",
     "is_primary_source",
     "SourceScores",
-    "SourceScoreStats",
+    "SourceScoresStats",
     "calc_source_scores",
     "aggregate_source_scores",
-    "source_score_stats_to_dict",
+    "source_scores_stats_to_dict",
     "PrimarySourceRate",
     "calc_primary_source_rate",
     "primary_source_rate_to_dict",

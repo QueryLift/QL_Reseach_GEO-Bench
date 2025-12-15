@@ -113,17 +113,17 @@ def calc_source_scores(
 
     primary_imp_wc: list[float] = []
     primary_imp_pwc: list[float] = []
-    primary_freq: list[int] = []
+    primary_frequency: list[int] = []
     non_primary_imp_wc: list[float] = []
     non_primary_imp_pwc: list[float] = []
-    non_primary_freq: list[int] = []
+    non_primary_frequency: list[int] = []
 
     for idx, m in metrics.items():
         # ターゲットインデックスの場合は一次情報源として扱う
         if idx in target_indices:
             primary_imp_wc.append(m.imp_wc)
             primary_imp_pwc.append(m.imp_pwc)
-            primary_freq.append(m.citation_frequency)
+            primary_frequency.append(m.citation_frequency)
             continue
 
         # Webソースの場合
@@ -133,61 +133,61 @@ def calc_source_scores(
             if is_primary_source(source["url"], primary_domains, source.get("media_type")):
                 primary_imp_wc.append(m.imp_wc)
                 primary_imp_pwc.append(m.imp_pwc)
-                primary_freq.append(m.citation_frequency)
+                primary_frequency.append(m.citation_frequency)
             else:
                 non_primary_imp_wc.append(m.imp_wc)
                 non_primary_imp_pwc.append(m.imp_pwc)
-                non_primary_freq.append(m.citation_frequency)
+                non_primary_frequency.append(m.citation_frequency)
 
     return SourceScores(
         primary_imp_wc_values=primary_imp_wc,
         primary_imp_pwc_values=primary_imp_pwc,
-        primary_freq_values=primary_freq,
+        primary_frequency_values=primary_frequency,
         non_primary_imp_wc_values=non_primary_imp_wc,
         non_primary_imp_pwc_values=non_primary_imp_pwc,
-        non_primary_freq_values=non_primary_freq,
+        non_primary_frequency_values=non_primary_frequency,
     )
 
 
-def aggregate_source_scores(scores_list: list[SourceScores]) -> SourceScoreStats:
-    """複数のSourceScoresを集計してSourceScoreStatsに変換"""
+def aggregate_source_scores(scores_list: list[SourceScores]) -> SourceScoresStats:
+    """複数のSourceScoresを集計してSourceScoresStatsに変換"""
     primary_wc_all: list[float] = []
     primary_pwc_all: list[float] = []
-    primary_freq_all: list[float] = []
+    primary_frequency_all: list[float] = []
     non_primary_wc_all: list[float] = []
     non_primary_pwc_all: list[float] = []
-    non_primary_freq_all: list[float] = []
+    non_primary_frequency_all: list[float] = []
 
     for scores in scores_list:
         primary_wc_all.extend(scores.primary_imp_wc_values)
         primary_pwc_all.extend(scores.primary_imp_pwc_values)
-        primary_freq_all.extend([float(f) for f in scores.primary_freq_values])
+        primary_frequency_all.extend([float(f) for f in scores.primary_frequency_values])
         non_primary_wc_all.extend(scores.non_primary_imp_wc_values)
         non_primary_pwc_all.extend(scores.non_primary_imp_pwc_values)
-        non_primary_freq_all.extend([float(f) for f in scores.non_primary_freq_values])
+        non_primary_frequency_all.extend([float(f) for f in scores.non_primary_frequency_values])
 
-    return SourceScoreStats(
+    return SourceScoresStats(
         primary_imp_wc=calc_stats(primary_wc_all),
         primary_imp_pwc=calc_stats(primary_pwc_all),
-        primary_freq=calc_stats(primary_freq_all),
+        primary_frequency=calc_stats(primary_frequency_all),
         non_primary_imp_wc=calc_stats(non_primary_wc_all),
         non_primary_imp_pwc=calc_stats(non_primary_pwc_all),
-        non_primary_freq=calc_stats(non_primary_freq_all),
+        non_primary_frequency=calc_stats(non_primary_frequency_all),
     )
 
 
-def source_score_stats_to_dict(stats: SourceScoreStats) -> dict:
-    """SourceScoreStats を辞書に変換"""
+def source_scores_stats_to_dict(stats: SourceScoresStats) -> dict:
+    """SourceScoresStats を辞書に変換"""
     return {
         "primary": {
             "imp_wc": stats_to_dict(stats.primary_imp_wc),
             "imp_pwc": stats_to_dict(stats.primary_imp_pwc),
-            "citation_frequency": stats_to_dict(stats.primary_freq),
+            "citation_frequency": stats_to_dict(stats.primary_frequency),
         },
         "non_primary": {
             "imp_wc": stats_to_dict(stats.non_primary_imp_wc),
             "imp_pwc": stats_to_dict(stats.non_primary_imp_pwc),
-            "citation_frequency": stats_to_dict(stats.non_primary_freq),
+            "citation_frequency": stats_to_dict(stats.non_primary_frequency),
         },
     }
 
